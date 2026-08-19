@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "source-root": ".",
+  "translation-units": [
+    {
+      "source": "src/geometry.cppm",
+      "object": "build/obj/geometry.o",
+      "provides": [
+        {"name": "geometry", "bmi": "build/bmi/geometry.pcm"}
+      ],
+      "requires": ["missing"]
+    }
+  ],
+  "external-modules": []
+}

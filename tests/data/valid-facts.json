@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "source-root": ".",
+  "translation-units": [
+    {
+      "source": "src/math.cppm",
+      "object": "build/obj/math.o",
+      "provides": [
+        {"name": "math", "bmi": "build/bmi/math.pcm"}
+      ],
+      "requires": []
+    },
+    {
+      "source": "src/geometry.cppm",
+      "object": "build/obj/geometry.o",
+      "provides": [
+        {"name": "geometry", "bmi": "build/bmi/geometry.pcm"}
+      ],
+      "requires": ["math"]
+    }
+  ],
+  "external-modules": []
+}

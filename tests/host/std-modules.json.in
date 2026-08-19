@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "source-root": ".",
+  "translation-units": [
+    {
+      "source": "@host_std_source@",
+      "object": "host/std.o",
+      "provides": [
+        {"name": "std", "bmi": "host/std.pcm"}
+      ],
+      "requires": []
+    },
+    {
+      "source": "@host_std_compat_source@",
+      "object": "host/std.compat.o",
+      "provides": [
+        {"name": "std.compat", "bmi": "host/std.compat.pcm"}
+      ],
+      "requires": ["std"]
+    },
+    {
+      "source": "@CMAKE_CURRENT_SOURCE_DIR@/host/std_consumer.cpp",
+      "object": "host/consumer.o",
+      "provides": [],
+      "requires": ["std.compat"]
+    }
+  ],
+  "external-modules": []
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "directory": ".",
+    "command": "clang++ -c src/helloworld.cppm -o build/obj/helloworld.o",
+    "file": "src/helloworld.cppm",
+    "output": "build/obj/helloworld.o"
+  },
+  {
+    "directory": ".",
+    "command": "clang++ -c src/main.cpp -o build/obj/main.o",
+    "file": "src/main.cpp",
+    "output": "build/obj/main.o"
+  }
+]

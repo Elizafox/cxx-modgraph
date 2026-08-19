@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "source-root": ".",
+  "translation-units": [
+    {
+      "source": "toolchain/std.cppm",
+      "object": "build/obj/std.o",
+      "provides": [
+        {"name": "std", "bmi": "build/bmi/std.pcm"}
+      ],
+      "requires": []
+    },
+    {
+      "source": "toolchain/std.compat.cppm",
+      "object": "build/obj/std.compat.o",
+      "provides": [
+        {"name": "std.compat", "bmi": "build/bmi/std.compat.pcm"}
+      ],
+      "requires": ["std"]
+    },
+    {
+      "source": "src/main.cpp",
+      "object": "build/obj/main.o",
+      "provides": [],
+      "requires": ["std.compat"]
+    }
+  ],
+  "external-modules": []
+}

@@ -1,0 +1,25 @@
+{
+  "revision": 0,
+  "rules": [
+    {
+      "primary-output": "build/obj/helloworld.o",
+      "provides": [
+        {
+          "is-interface": true,
+          "logical-name": "helloworld",
+          "source-path": "src/helloworld.cppm"
+        }
+      ],
+      "requires": [
+        {"logical-name": "std"}
+      ]
+    },
+    {
+      "primary-output": "build/obj/main.o",
+      "requires": [
+        {"logical-name": "helloworld", "source-path": "src/helloworld.cppm"}
+      ]
+    }
+  ],
+  "version": 1
+}

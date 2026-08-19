@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cxx-modgraph.dev/schema/dependency-facts-v1.json",
+  "title": "cxx-modgraph dependency facts",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source-root",
+    "translation-units",
+    "external-modules"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "source-root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "translation-units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "object",
+          "provides",
+          "requires"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object": {
+            "type": "string"
+          },
+          "provides": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "bmi"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bmi": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "external-modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "bmi"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bmi": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
