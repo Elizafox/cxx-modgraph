@@ -105,8 +105,7 @@ cxx-modgraph --input dependencies.json --source-root "$PWD" --emit json
 Emit a recipe-free Make fragment with BMI and object prerequisites:
 
 ```sh
-cxx-modgraph --input dependencies.json --source-root "$PWD" --emit make \
-  --output build/modules.mk
+cxx-modgraph --input dependencies.json --source-root "$PWD" --emit make --output build/modules.mk
 ```
 
 The fragment defines `CXX_MODGRAPH_BMI_TARGETS` and
