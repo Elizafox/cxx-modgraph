@@ -73,8 +73,9 @@ CXX_MODGRAPH_MODULE_PATHS := modules vendor/modules
 ```
 
 Files immediately inside those directories with `.cppm`, `.ixx`, or `.mpp`
-extensions are added to the scan. Clang—not the filename—determines which module
-each file provides. Projects can override `CXX_MODGRAPH_MODULE_EXTENSIONS`.
+extensions are added to the scan. Clang — not the filename — determines which
+module each file provides. Projects can override
+`CXX_MODGRAPH_MODULE_EXTENSIONS`.
 
 ## Canonical dependency facts
 
