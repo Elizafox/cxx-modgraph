@@ -48,6 +48,7 @@ AnalysisResult analyze(const DependencyFacts &facts)
                            "external module has an empty name");
             continue;
         }
+
         if (module.bmi_path.empty())
         {
             add_diagnostic(result, DiagnosticCode::empty_bmi_path,

@@ -95,6 +95,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             write_escaped(output, normalized(module.bmi_path));
             output << '}';
         }
+
         output << (unit.provides.empty() ? "]" : "\n      ]") << ",\n      \"requires\": [";
         for (std::size_t required_index = 0; required_index < unit.required_modules.size();
              ++required_index)
@@ -105,8 +106,10 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             }
             write_escaped(output, unit.required_modules[required_index]);
         }
+
         output << "]\n    }";
     }
+
     output << (units.empty() ? "]" : "\n  ]") << ",\n  \"external-modules\": [";
 
     for (std::size_t index = 0; index < external.size(); ++index)
@@ -117,6 +120,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, normalized(external[index].bmi_path));
         output << '}';
     }
+
     output << (external.empty() ? "]" : "\n  ]") << "\n}\n";
 }
 

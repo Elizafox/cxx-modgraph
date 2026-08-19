@@ -24,11 +24,13 @@ public:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<JsonValue::Object>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be an object");
         }
+
         return result;
     }
 
@@ -38,11 +40,13 @@ public:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<JsonValue::Array>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be an array");
         }
+
         return result;
     }
 
@@ -52,11 +56,13 @@ public:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<std::string>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be a string");
         }
+
         return result;
     }
 
@@ -66,11 +72,13 @@ public:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<std::int64_t>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be an integer");
         }
+
         return result;
     }
 
@@ -82,11 +90,13 @@ public:
         {
             return &found->second;
         }
+
         if (required)
         {
             error(std::string(context) + " is missing required property '" + std::string(name) +
                   "'");
         }
+
         return nullptr;
     }
 
@@ -115,6 +125,7 @@ std::map<std::string, std::filesystem::path> read_compilation_database(const Jso
         {
             continue;
         }
+
         const std::string *file =
             reader.string(reader.property(*entry, "file", context), context + ".file");
         const std::string *output =
@@ -143,11 +154,13 @@ void read_provides(const JsonValue::Object &rule, const std::string &context,
     {
         return;
     }
+
     const JsonValue::Array *provides = reader.array(value, context + ".provides");
     if (provides == nullptr)
     {
         return;
     }
+
     for (std::size_t index = 0; index < provides->size(); ++index)
     {
         const std::string item_context = context + ".provides[" + std::to_string(index) + "]";
@@ -156,6 +169,7 @@ void read_provides(const JsonValue::Object &rule, const std::string &context,
         {
             continue;
         }
+
         const std::string *name =
             reader.string(reader.property(*provided, "logical-name", item_context),
                           item_context + ".logical-name");
@@ -174,11 +188,13 @@ void read_requires(const JsonValue::Object &rule, const std::string &context, Tr
     {
         return;
     }
+
     const JsonValue::Array *requirements = reader.array(value, context + ".requires");
     if (requirements == nullptr)
     {
         return;
     }
+
     for (std::size_t index = 0; index < requirements->size(); ++index)
     {
         const std::string item_context = context + ".requires[" + std::to_string(index) + "]";
@@ -187,6 +203,7 @@ void read_requires(const JsonValue::Object &rule, const std::string &context, Tr
         {
             continue;
         }
+
         const std::string *name =
             reader.string(reader.property(*required, "logical-name", item_context),
                           item_context + ".logical-name");
@@ -210,12 +227,14 @@ DependencyFacts read_p1689(const JsonValue &root,
     {
         return facts;
     }
+
     const std::int64_t *version = reader.integer(
         reader.property(*document, "version", "P1689 document"), "P1689 document.version");
     if (version != nullptr && *version != 1)
     {
         reader.error("unsupported P1689 version " + std::to_string(*version));
     }
+
     const JsonValue::Array *rules =
         reader.array(reader.property(*document, "rules", "P1689 document"), "P1689 document.rules");
     if (rules == nullptr)
@@ -231,12 +250,14 @@ DependencyFacts read_p1689(const JsonValue &root,
         {
             continue;
         }
+
         const std::string *output = reader.string(reader.property(*rule, "primary-output", context),
                                                   context + ".primary-output");
         if (output == nullptr)
         {
             continue;
         }
+
         const auto source = sources.find(*output);
         if (source == sources.end())
         {
@@ -276,6 +297,7 @@ P1689ImportResult import_p1689(std::string_view input, std::string_view compilat
         {
             return {.facts = std::nullopt, .errors = std::move(reader.errors)};
         }
+
         return {.facts = std::move(facts), .errors = {}};
     }
     catch (const JsonError &error)

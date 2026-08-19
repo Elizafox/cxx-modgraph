@@ -38,10 +38,12 @@ JsonValue convert_json(const nlohmann::json &value)
     {
         return JsonValue{nullptr};
     }
+
     if (value.is_boolean())
     {
         return JsonValue{value.get<bool>()};
     }
+
     if (value.is_number_unsigned())
     {
         const std::uint64_t number = value.get<std::uint64_t>();
@@ -49,20 +51,25 @@ JsonValue convert_json(const nlohmann::json &value)
         {
             throw JsonError{1, 1, "integer is out of range"};
         }
+
         return JsonValue{static_cast<std::int64_t>(number)};
     }
+
     if (value.is_number_integer())
     {
         return JsonValue{value.get<std::int64_t>()};
     }
+
     if (value.is_number_float())
     {
         throw JsonError{1, 1, "dependency facts require integer JSON numbers"};
     }
+
     if (value.is_string())
     {
         return JsonValue{value.get<std::string>()};
     }
+
     if (value.is_array())
     {
         JsonValue::Array result;
@@ -79,6 +86,7 @@ JsonValue convert_json(const nlohmann::json &value)
     {
         result.emplace(item.key(), convert_json(item.value()));
     }
+
     return JsonValue{std::move(result)};
 }
 
@@ -99,6 +107,7 @@ JsonError syntax_error(std::string_view input, const nlohmann::json::parse_error
             ++column;
         }
     }
+
     return {line, column, error.what()};
 }
 
@@ -112,6 +121,7 @@ public:
         {
             return {};
         }
+
         reject_unknown(*root, {"version", "source-root", "translation-units", "external-modules"},
                        "root");
 
@@ -128,13 +138,16 @@ public:
                 facts.version = static_cast<unsigned int>(*version);
             }
         }
+
         if (const std::string *root_path =
                 string(property(*root, "source-root", "root"), "source-root"))
         {
             facts.source_root = *root_path;
         }
+
         decode_units(property(*root, "translation-units", "root"), facts);
         decode_external(property(*root, "external-modules", "root"), facts);
+
         return facts;
     }
 
@@ -157,6 +170,7 @@ private:
         {
             return &found->second;
         }
+
         error(std::string(context) + " is missing required property '" + std::string(name) + "'");
         return nullptr;
     }
@@ -167,11 +181,13 @@ private:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<JsonValue::Object>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be an object");
         }
+
         return result;
     }
 
@@ -181,11 +197,13 @@ private:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<JsonValue::Array>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be an array");
         }
+
         return result;
     }
 
@@ -195,11 +213,13 @@ private:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<std::string>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be a string");
         }
+
         return result;
     }
 
@@ -209,11 +229,13 @@ private:
         {
             return nullptr;
         }
+
         const auto *result = std::get_if<std::int64_t>(&value->value);
         if (result == nullptr)
         {
             error(std::string(context) + " must be an integer");
         }
+
         return result;
     }
 
@@ -237,6 +259,7 @@ private:
         {
             return;
         }
+
         for (std::size_t index = 0; index < units->size(); ++index)
         {
             const std::string context = "translation-units[" + std::to_string(index) + "]";
@@ -245,6 +268,7 @@ private:
             {
                 continue;
             }
+
             reject_unknown(*item, {"source", "object", "provides", "requires"}, context);
             TranslationUnit unit;
             if (const std::string *source =
@@ -252,11 +276,13 @@ private:
             {
                 unit.source_path = *source;
             }
+
             if (const std::string *object_path =
                     string(property(*item, "object", context), context + ".object"))
             {
                 unit.object_path = *object_path;
             }
+
             decode_provides(property(*item, "provides", context), context, unit);
             decode_requires(property(*item, "requires", context), context, unit);
             facts.translation_units.push_back(std::move(unit));
@@ -270,6 +296,7 @@ private:
         {
             return;
         }
+
         for (std::size_t index = 0; index < modules->size(); ++index)
         {
             const std::string item_context = context + ".provides[" + std::to_string(index) + "]";
@@ -278,6 +305,7 @@ private:
             {
                 continue;
             }
+
             reject_unknown(*item, {"name", "bmi"}, item_context);
             ProvidedModule module;
             if (const std::string *name =
@@ -285,11 +313,13 @@ private:
             {
                 module.name = *name;
             }
+
             if (const std::string *bmi =
                     string(property(*item, "bmi", item_context), item_context + ".bmi"))
             {
                 module.bmi_path = *bmi;
             }
+
             unit.provides.push_back(std::move(module));
         }
     }
@@ -301,6 +331,7 @@ private:
         {
             return;
         }
+
         for (std::size_t index = 0; index < modules->size(); ++index)
         {
             const std::string item_context = context + ".requires[" + std::to_string(index) + "]";
@@ -318,6 +349,7 @@ private:
         {
             return;
         }
+
         for (std::size_t index = 0; index < modules->size(); ++index)
         {
             const std::string context = "external-modules[" + std::to_string(index) + "]";
@@ -326,6 +358,7 @@ private:
             {
                 continue;
             }
+
             reject_unknown(*item, {"name", "bmi"}, context);
             ExternalModule module;
             if (const std::string *name =
@@ -333,10 +366,12 @@ private:
             {
                 module.name = *name;
             }
+
             if (const std::string *bmi = string(property(*item, "bmi", context), context + ".bmi"))
             {
                 module.bmi_path = *bmi;
             }
+
             facts.external_modules.push_back(std::move(module));
         }
     }
@@ -368,6 +403,7 @@ detail::JsonValue detail::parse_json_value(std::string_view input)
         {
             object_keys.pop_back();
         }
+
         return true;
     };
 

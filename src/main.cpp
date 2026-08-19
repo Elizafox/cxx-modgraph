@@ -188,6 +188,7 @@ std::optional<Options> parse_options(int argc, char **argv)
             return std::nullopt;
         }
     }
+
     return options;
 }
 
@@ -264,6 +265,7 @@ int run(const Options &options)
             std::cerr << "error:" << error.line << ':' << error.column << ": " << error.message
                       << '\n';
         }
+
         return 1;
     }
 
@@ -278,6 +280,7 @@ int run(const Options &options)
         {
             std::cerr << "error: " << diagnostic.message << '\n';
         }
+
         return 1;
     }
 
@@ -291,6 +294,7 @@ int run(const Options &options)
             std::cerr << "error: cannot open output '" << options.output_path->string() << "'\n";
             return 1;
         }
+
         output = &output_file;
     }
     if (options.emit_format == Options::EmitFormat::json)
