@@ -9,6 +9,7 @@ This project primarily focusses on:
 - Explicit, reproducible source-path resolution.
 - Compiler-neutral dependency facts.
 - Make and JSON output formats.
+- Making the process of using C++ modules much more frictionless.
 
 ## Building
 
