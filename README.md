@@ -72,10 +72,16 @@ CXX_MODGRAPH_SOURCES := src/main.cpp
 CXX_MODGRAPH_MODULE_PATHS := modules vendor/modules
 ```
 
-Files immediately inside those directories with `.cppm`, `.ixx`, or `.mpp`
-extensions are added to the scan. Clang — not the filename — determines which
-module each file provides. Projects can override
-`CXX_MODGRAPH_MODULE_EXTENSIONS`.
+Files recursively beneath those directories with `.cppm`, `.ixx`, or `.mpp`
+extensions are added to the scan. Their object paths retain the source directory
+layout beneath the object directory, so equal basenames in different directories
+do not collide. Clang determines which module each file provides, not the
+filename. Projects can override `CXX_MODGRAPH_MODULE_EXTENSIONS`.
+
+Module partitions are represented by their P1689 logical names (for example,
+`hello:detail`). Generated BMI filenames use reversible percent encoding, and the
+Make metadata records imports as explicit `name=path` mappings. The Clang adapter
+therefore does not depend on compiler filename conventions to locate partitions.
 
 ## Canonical dependency facts
 

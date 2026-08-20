@@ -16,10 +16,12 @@ CXX_MODGRAPH_SOURCES ?= $(SOURCES)
 CXX_MODGRAPH_MODULE_PATHS ?=
 CXX_MODGRAPH_MODULE_EXTENSIONS ?= cppm ixx mpp
 
+cxx_modgraph_walk = $(foreach entry,$(wildcard $(1)/*), \
+    $(if $(wildcard $(entry)/.),$(call cxx_modgraph_walk,$(entry)),$(entry)))
 CXX_MODGRAPH_DISCOVERED_MODULE_SOURCES := $(sort \
-    $(foreach directory,$(CXX_MODGRAPH_MODULE_PATHS), \
-        $(foreach extension,$(CXX_MODGRAPH_MODULE_EXTENSIONS), \
-            $(wildcard $(directory)/*.$(extension)))))
+    $(filter $(foreach extension,$(CXX_MODGRAPH_MODULE_EXTENSIONS),%.$(extension)), \
+        $(foreach directory,$(CXX_MODGRAPH_MODULE_PATHS), \
+            $(call cxx_modgraph_walk,$(directory)))))
 CXX_MODGRAPH_SCAN_SOURCES := $(sort \
     $(CXX_MODGRAPH_SOURCES) $(CXX_MODGRAPH_DISCOVERED_MODULE_SOURCES))
 
@@ -28,7 +30,7 @@ CXX_MODGRAPH_ADAPTER_MAKEFILE := $(lastword $(MAKEFILE_LIST))
 cxx_modgraph_comma := ,
 
 cxx_modgraph_object = \
-    $(CXX_MODGRAPH_OBJECT_DIRECTORY)/$(basename $(notdir $(1))).o
+    $(CXX_MODGRAPH_OBJECT_DIRECTORY)/$(patsubst ./%,%,$(basename $(1))).o
 
 define cxx_modgraph_compdb_entry
 {"directory":"$(CURDIR)","command":"$(CXX) $(CXX_MODGRAPH_CXXFLAGS) -c $(1) -o $(call cxx_modgraph_object,$(1))","file":"$(1)","output":"$(call cxx_modgraph_object,$(1))"}
@@ -77,6 +79,7 @@ $(CXX_MODGRAPH_BMI_TARGETS):
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXX_MODGRAPH_CXXFLAGS) \
 		-fprebuilt-module-path=$(CXX_MODGRAPH_BMI_DIRECTORY) \
+		$(foreach module,$(CXX_MODGRAPH_IMPORTS),-fmodule-file=$(module)) \
 		--precompile $(CXX_MODGRAPH_SOURCE) -o $@
 
 $(CXX_MODGRAPH_OBJECT_TARGETS):
@@ -84,10 +87,12 @@ $(CXX_MODGRAPH_OBJECT_TARGETS):
 	@if test -n "$(CXX_MODGRAPH_PROVIDED_BMIS)"; then \
 		$(CXX) $(CXX_MODGRAPH_CXXFLAGS) \
 			-fprebuilt-module-path=$(CXX_MODGRAPH_BMI_DIRECTORY) \
+			$(foreach module,$(CXX_MODGRAPH_IMPORTS),-fmodule-file=$(module)) \
 			-c $(firstword $(CXX_MODGRAPH_PROVIDED_BMIS)) -o $@; \
 	else \
 		$(CXX) $(CXX_MODGRAPH_CXXFLAGS) \
 			-fprebuilt-module-path=$(CXX_MODGRAPH_BMI_DIRECTORY) \
+			$(foreach module,$(CXX_MODGRAPH_IMPORTS),-fmodule-file=$(module)) \
 			-c $(CXX_MODGRAPH_SOURCE) -o $@; \
 	fi
 

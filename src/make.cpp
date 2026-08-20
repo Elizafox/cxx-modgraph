@@ -22,6 +22,12 @@ struct ModuleProvider
     bool external = false;
 };
 
+struct ModuleImport
+{
+    std::string name;
+    std::filesystem::path bmi_path;
+};
+
 std::string normalized(const std::filesystem::path &path)
 {
     return path.lexically_normal().generic_string();
@@ -33,6 +39,7 @@ std::filesystem::path resolve_input(const DependencyFacts &facts, const std::fil
     {
         return path.lexically_normal();
     }
+
     return (facts.source_root / path).lexically_normal();
 }
 
@@ -52,9 +59,11 @@ std::string escape(std::string_view value)
             {
                 result.push_back('\\');
             }
+
             result.push_back(character);
         }
     }
+
     return result;
 }
 
@@ -102,12 +111,12 @@ void write_prerequisites(std::ostream &output, const std::filesystem::path &targ
     output << "\n\n";
 }
 
-std::vector<std::filesystem::path>
+std::vector<ModuleImport>
 import_bmis(const TranslationUnit &unit, const std::map<std::string, ModuleProvider> &providers,
             const DependencyFacts &facts)
 {
     std::set<std::string> seen;
-    std::vector<std::filesystem::path> result;
+    std::vector<ModuleImport> result;
     for (const std::string &required : unit.required_modules)
     {
         const auto provider = providers.find(required);
@@ -115,18 +124,44 @@ import_bmis(const TranslationUnit &unit, const std::map<std::string, ModuleProvi
         {
             continue;
         }
+
         std::filesystem::path path = provider->second.bmi_path;
         if (provider->second.external)
         {
             path = resolve_input(facts, path);
         }
-        if (seen.insert(normalized(path)).second)
+
+        if (seen.insert(required).second)
         {
-            result.push_back(std::move(path));
+            result.push_back({required, std::move(path)});
         }
     }
+
+    std::ranges::sort(result, {}, &ModuleImport::name);
+    return result;
+}
+
+std::vector<std::filesystem::path> import_paths(const std::vector<ModuleImport> &imports)
+{
+    std::vector<std::filesystem::path> result;
+    for (const ModuleImport &module : imports)
+    {
+        result.push_back(module.bmi_path);
+    }
+
     std::ranges::sort(result, {}, normalized);
     return result;
+}
+
+void write_imports(std::ostream &output, const std::filesystem::path &target,
+                   const std::vector<ModuleImport> &imports)
+{
+    output << escaped_path(target) << ": CXX_MODGRAPH_IMPORTS :=";
+    for (const ModuleImport &module : imports)
+    {
+        output << ' ' << escape(module.name + "=" + normalized(module.bmi_path));
+    }
+    output << '\n';
 }
 
 } // namespace
@@ -177,7 +212,8 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
     for (const TranslationUnit *unit : units)
     {
         const std::filesystem::path source = resolve_input(facts, unit->source_path);
-        const std::vector<std::filesystem::path> imports = import_bmis(*unit, providers, facts);
+        const std::vector<ModuleImport> imports = import_bmis(*unit, providers, facts);
+        const std::vector<std::filesystem::path> imported_bmis = import_paths(imports);
 
         std::vector<ProvidedModule> provided = unit->provides;
         std::ranges::sort(provided, {}, &ProvidedModule::name);
@@ -188,10 +224,12 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
             write_target_variable(output, module.bmi_path, "CXX_MODGRAPH_SOURCE",
                                   normalized(source));
             write_target_variable(output, module.bmi_path, "CXX_MODGRAPH_MODULE", module.name);
-            write_target_variable(output, module.bmi_path, "CXX_MODGRAPH_IMPORT_BMIS", imports);
+            write_target_variable(output, module.bmi_path, "CXX_MODGRAPH_IMPORT_BMIS",
+                                  imported_bmis);
+            write_imports(output, module.bmi_path, imports);
 
             std::vector<std::filesystem::path> prerequisites{source};
-            prerequisites.insert(prerequisites.end(), imports.begin(), imports.end());
+            prerequisites.insert(prerequisites.end(), imported_bmis.begin(), imported_bmis.end());
             write_prerequisites(output, module.bmi_path, prerequisites);
         }
 
@@ -201,11 +239,13 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
                                   normalized(source));
             write_target_variable(output, unit->object_path, "CXX_MODGRAPH_PROVIDED_BMIS",
                                   own_bmis);
-            write_target_variable(output, unit->object_path, "CXX_MODGRAPH_IMPORT_BMIS", imports);
+            write_target_variable(output, unit->object_path, "CXX_MODGRAPH_IMPORT_BMIS",
+                                  imported_bmis);
+            write_imports(output, unit->object_path, imports);
 
             std::vector<std::filesystem::path> prerequisites{source};
             prerequisites.insert(prerequisites.end(), own_bmis.begin(), own_bmis.end());
-            prerequisites.insert(prerequisites.end(), imports.begin(), imports.end());
+            prerequisites.insert(prerequisites.end(), imported_bmis.begin(), imported_bmis.end());
             write_prerequisites(output, unit->object_path, prerequisites);
         }
     }

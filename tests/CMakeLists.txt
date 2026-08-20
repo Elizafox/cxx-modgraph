@@ -92,6 +92,14 @@ if(CXX_MODGRAPH_MAKE_EXECUTABLE)
                 -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/make-include
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_make.cmake
         )
+        add_test(
+            NAME make-adapter-discovery
+            COMMAND ${CMAKE_COMMAND}
+                -Dmake_program=${CXX_MODGRAPH_MAKE_EXECUTABLE}
+                -Dadapter=${PROJECT_SOURCE_DIR}/adapters/make/clang.mk
+                -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/make-adapter
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/check_make_adapter.cmake
+        )
     endif()
 endif()
 
