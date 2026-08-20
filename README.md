@@ -170,6 +170,26 @@ module-set membership, and private visibility are also retained.
 The compatible BMI is only an optimization: interface source and recipe remain
 authoritative because BMIs are compiler- and configuration-specific.
 
+## BMI compatibility and cache metadata
+
+Canonical facts version 4 assigns each translation and external BMI an explicit
+`bmi-compatibility` scope: compiler executable and version, target triple,
+sysroot, language standard, standard library, configuration, a user policy key,
+and repeatable adapter-specific keys. `--configuration debug` and
+`--bmi-compatibility-key <value>` let the build system define policy without
+requiring cxx-modgraph to infer a minimal compiler flag set. The other fields
+have corresponding CLI options, and adapters can contribute repeatable
+`--adapter-compatibility-key` values.
+
+Providers are selected by logical name, module set, and the complete
+compatibility scope. Consequently the same module (and even the same source)
+may have independent debug, ASan, target, or toolchain translations.
+
+The optional top-level `bmi-cache` array records module/module-set,
+`source-digest`, `recipe-digest`, `compatibility-key`, `bmi-digest`, and optional
+`object-digest`. These are cache metadata only: absence of a matching record is
+a cache miss and leaves the source build in place.
+
 ## MSVC
 
 The Make and Ninja adapter directories include `msvc.mk` and `msvc.ninja`.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cxx-modgraph.dev/schema/dependency-facts-v3.json",
+  "$id": "https://cxx-modgraph.dev/schema/dependency-facts-v4.json",
   "title": "cxx-modgraph dependency facts",
   "type": "object",
   "additionalProperties": false,
@@ -12,7 +12,7 @@
   ],
   "properties": {
     "version": {
-      "enum": [1, 2, 3]
+      "enum": [1, 2, 3, 4]
     },
     "source-root": {
       "type": "string",
@@ -73,7 +73,8 @@
           "local-arguments": {"type":"array","items":{"type":"string"}},
           "work-directory": {"type":"string"},
           "module-set": {"type":"string","minLength":1},
-          "private": {"type":"boolean"}
+          "private": {"type":"boolean"},
+          "bmi-compatibility": {"$ref":"#/$defs/bmi-compatibility"}
         }
       }
     },
@@ -94,11 +95,17 @@
           "bmi": {
             "type": "string",
             "minLength": 1
-          }
+          },
+          "module-set": {"type":"string","minLength":1},
+          "bmi-compatibility": {"$ref":"#/$defs/bmi-compatibility"}
         }
       }
     },
     "inputs": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["path","digest"],"properties":{"path":{"type":"string"},"digest":{"type":"string","pattern":"^fnv1a64:[0-9a-f]{16}$"}}}},
-    "module-sets": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","family-name","baseline-arguments"],"properties":{"name":{"type":"string","minLength":1},"family-name":{"type":"string"},"baseline-arguments":{"type":"array","items":{"type":"string"}},"visible-sets":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}}}}}
+    "module-sets": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","family-name","baseline-arguments"],"properties":{"name":{"type":"string","minLength":1},"family-name":{"type":"string"},"baseline-arguments":{"type":"array","items":{"type":"string"}},"visible-sets":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1}}}}},
+    "bmi-cache": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["module","source-digest","recipe-digest","compatibility-key","bmi-digest"],"properties":{"module":{"type":"string","minLength":1},"module-set":{"type":"string","minLength":1},"source-digest":{"type":"string","minLength":1},"recipe-digest":{"type":"string","minLength":1},"compatibility-key":{"type":"string","minLength":1},"bmi-digest":{"type":"string","minLength":1},"object-digest":{"type":"string"}}}}
+  },
+  "$defs": {
+    "bmi-compatibility": {"type":"object","additionalProperties":false,"properties":{"compiler-executable":{"type":"string"},"compiler-version":{"type":"string"},"target-triple":{"type":"string"},"sysroot":{"type":"string"},"language-standard":{"type":"string"},"standard-library":{"type":"string"},"configuration":{"type":"string","minLength":1},"user-key":{"type":"string"},"adapter-keys":{"type":"array","items":{"type":"string"}}}}
   }
 }

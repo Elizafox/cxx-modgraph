@@ -6,6 +6,7 @@
 #include <ostream>
 #include <sstream>
 #include <string_view>
+#include <tuple>
 
 namespace cxx_modgraph
 {
@@ -61,13 +62,45 @@ std::string normalized(const std::filesystem::path &path)
     return path.lexically_normal().generic_string();
 }
 
+void write_compatibility(std::ostream &output, const BmiCompatibility &value)
+{
+    output << "{\"compiler-executable\": ";
+    write_escaped(output, value.compiler_executable);
+    output << ", \"compiler-version\": ";
+    write_escaped(output, value.compiler_version);
+    output << ", \"target-triple\": ";
+    write_escaped(output, value.target_triple);
+    output << ", \"sysroot\": ";
+    write_escaped(output, value.sysroot);
+    output << ", \"language-standard\": ";
+    write_escaped(output, value.language_standard);
+    output << ", \"standard-library\": ";
+    write_escaped(output, value.standard_library);
+    output << ", \"configuration\": ";
+    write_escaped(output, value.configuration);
+    output << ", \"user-key\": ";
+    write_escaped(output, value.user_key);
+    output << ", \"adapter-keys\": [";
+    for (std::size_t i = 0; i < value.adapter_keys.size(); ++i)
+    {
+        if (i)
+            output << ", ";
+        write_escaped(output, value.adapter_keys[i]);
+    }
+    output << "]}";
+}
+
 } // namespace
 
 void write_json(std::ostream &output, const DependencyFacts &facts)
 {
     std::vector<TranslationUnit> units = facts.translation_units;
-    std::ranges::sort(units, {},
-                      [](const TranslationUnit &unit) { return normalized(unit.source_path); });
+    std::ranges::sort(units,
+                      [](const TranslationUnit &a, const TranslationUnit &b)
+                      {
+                          return std::tie(a.source_path, a.module_set, a.bmi_compatibility) <
+                                 std::tie(b.source_path, b.module_set, b.bmi_compatibility);
+                      });
     std::vector<ExternalModule> external = facts.external_modules;
     std::ranges::sort(external, {}, &ExternalModule::name);
 
@@ -147,6 +180,8 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             output << ",\n      \"module-set\": ";
             write_escaped(output, unit.module_set);
         }
+        output << ",\n      \"bmi-compatibility\": ";
+        write_compatibility(output, unit.bmi_compatibility);
         if (unit.is_private)
             output << ",\n      \"private\": true";
         if (!unit.dependency_reasons.empty())
@@ -202,6 +237,10 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, external[index].name);
         output << ", \"bmi\": ";
         write_escaped(output, normalized(external[index].bmi_path));
+        output << ", \"module-set\": ";
+        write_escaped(output, external[index].module_set);
+        output << ", \"bmi-compatibility\": ";
+        write_compatibility(output, external[index].bmi_compatibility);
         output << '}';
     }
 
@@ -240,7 +279,29 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         }
         output << "]}";
     }
-    output << (sets.empty() ? "]" : "\n  ]") << "\n}\n";
+    output << (sets.empty() ? "]" : "\n  ]") << ",\n  \"bmi-cache\": [";
+    auto cache = facts.bmi_cache;
+    std::ranges::sort(cache, {}, &BmiCacheRecord::module);
+    for (std::size_t i = 0; i < cache.size(); ++i)
+    {
+        const auto &r = cache[i];
+        output << (i ? ",\n" : "\n") << "    {\"module\": ";
+        write_escaped(output, r.module);
+        output << ", \"module-set\": ";
+        write_escaped(output, r.module_set);
+        output << ", \"source-digest\": ";
+        write_escaped(output, r.source_digest);
+        output << ", \"recipe-digest\": ";
+        write_escaped(output, r.recipe_digest);
+        output << ", \"compatibility-key\": ";
+        write_escaped(output, r.compatibility_key);
+        output << ", \"bmi-digest\": ";
+        write_escaped(output, r.bmi_digest);
+        output << ", \"object-digest\": ";
+        write_escaped(output, r.object_digest);
+        output << '}';
+    }
+    output << (cache.empty() ? "]" : "\n  ]") << "\n}\n";
 }
 
 std::string to_json(const DependencyFacts &facts)

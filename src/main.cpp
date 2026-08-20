@@ -65,6 +65,7 @@ struct Options
     bool check_fresh = false;
     std::string scanner;
     std::string scanner_version;
+    cxx_modgraph::BmiCompatibility compatibility;
 };
 
 std::string digest(std::string_view value)
@@ -78,6 +79,14 @@ std::string digest(std::string_view value)
     std::ostringstream out;
     out << "fnv1a64:" << std::hex << std::setfill('0') << std::setw(16) << hash;
     return out.str();
+}
+
+bool has_explicit_compatibility(const cxx_modgraph::BmiCompatibility &c)
+{
+    return c.configuration != "default" || !c.compiler_executable.empty() ||
+           !c.compiler_version.empty() || !c.target_triple.empty() || !c.sysroot.empty() ||
+           !c.language_standard.empty() || !c.standard_library.empty() || !c.user_key.empty() ||
+           !c.adapter_keys.empty();
 }
 
 std::optional<int> parse_options(int argc, char **argv, Options &options)
@@ -106,6 +115,34 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     app.add_option("--scanner", options.scanner, "Dependency scanner identity")->type_name("NAME");
     app.add_option("--scanner-version", options.scanner_version, "Dependency scanner version")
         ->type_name("VERSION");
+    app.add_option("--configuration", options.compatibility.configuration,
+                   "Build configuration identifier (for example debug or asan)")
+        ->type_name("NAME")
+        ->default_str("default");
+    app.add_option("--bmi-compatibility-key", options.compatibility.user_key,
+                   "Build-system supplied BMI compatibility policy key")
+        ->type_name("VALUE");
+    app.add_option("--compiler-executable", options.compatibility.compiler_executable,
+                   "Compiler executable identity for BMI compatibility")
+        ->type_name("ID");
+    app.add_option("--compiler-version", options.compatibility.compiler_version,
+                   "Compiler version for BMI compatibility")
+        ->type_name("VERSION");
+    app.add_option("--target-triple", options.compatibility.target_triple,
+                   "Target triple for BMI compatibility")
+        ->type_name("TRIPLE");
+    app.add_option("--sysroot-identifier", options.compatibility.sysroot,
+                   "Sysroot identity for BMI compatibility")
+        ->type_name("ID");
+    app.add_option("--language-standard", options.compatibility.language_standard,
+                   "Language standard for BMI compatibility")
+        ->type_name("STANDARD");
+    app.add_option("--standard-library", options.compatibility.standard_library,
+                   "Standard library for BMI compatibility")
+        ->type_name("LIBRARY");
+    app.add_option("--adapter-compatibility-key", options.compatibility.adapter_keys,
+                   "Compiler-adapter-specific BMI compatibility material; repeat as needed")
+        ->type_name("VALUE");
     app.add_flag("--check-fresh", options.check_fresh, "Fail if any recorded graph input changed");
     app.add_option_function<std::pair<std::string, std::filesystem::path>>(
            "--external-module", [&options](const auto &mapping)
@@ -207,6 +244,13 @@ int run(const Options &options)
             facts.external_modules.insert(facts.external_modules.end(),
                                           options.external_modules.begin(),
                                           options.external_modules.end());
+            if (has_explicit_compatibility(options.compatibility))
+            {
+                for (auto &unit : facts.translation_units)
+                    unit.bmi_compatibility = options.compatibility;
+                for (auto &module : facts.external_modules)
+                    module.bmi_compatibility = options.compatibility;
+            }
             if (options.check_fresh)
             {
                 if (facts.inputs.empty())
@@ -262,6 +306,7 @@ int run(const Options &options)
         import_options.bmi_extension = options.bmi_extension;
         import_options.scanner = options.scanner;
         import_options.scanner_version = options.scanner_version;
+        import_options.bmi_compatibility = options.compatibility;
         facts.source_root = import_options.source_root;
         facts.external_modules = options.external_modules;
         facts.inputs.push_back({*options.compilation_database, digest(command_contents.str())});

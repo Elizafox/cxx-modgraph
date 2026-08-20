@@ -22,6 +22,7 @@ struct P1689ImportOptions
     std::filesystem::path rule_source;
     std::string scanner;
     std::string scanner_version;
+    BmiCompatibility bmi_compatibility;
 };
 
 struct P1689ImportResult

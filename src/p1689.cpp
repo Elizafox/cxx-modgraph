@@ -380,6 +380,7 @@ DependencyFacts read_p1689(const JsonValue &root, std::string_view raw_document,
         unit.object_path = *output;
         unit.arguments = source->second.arguments;
         unit.work_directory = source->second.directory;
+        unit.bmi_compatibility = options.bmi_compatibility;
         unit.provenance = ScanProvenance{options.rule_source,
                                          options.scanner,
                                          options.scanner_version,

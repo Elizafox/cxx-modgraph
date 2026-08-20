@@ -4,6 +4,7 @@
 
 #include "cxx_modgraph/graph.hpp"
 
+#include <compare>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -12,7 +13,36 @@
 namespace cxx_modgraph
 {
 
-inline constexpr unsigned int current_facts_version = 3;
+inline constexpr unsigned int current_facts_version = 4;
+
+// A BMI is only reusable inside an identical compatibility scope.  Empty fields are
+// deliberately meaningful: cxx-modgraph records policy supplied by the build tool; it
+// does not guess which compiler flags happen to affect a particular compiler's BMI.
+struct BmiCompatibility
+{
+    std::string compiler_executable;
+    std::string compiler_version;
+    std::string target_triple;
+    std::string sysroot;
+    std::string language_standard;
+    std::string standard_library;
+    std::string configuration = "default";
+    std::string user_key;
+    std::vector<std::string> adapter_keys;
+
+    auto operator<=>(const BmiCompatibility &) const = default;
+};
+
+struct BmiCacheRecord
+{
+    std::string module;
+    std::string module_set = "default";
+    std::string source_digest;
+    std::string recipe_digest;
+    std::string compatibility_key;
+    std::string bmi_digest;
+    std::string object_digest;
+};
 
 struct InputArtifact
 {
@@ -60,6 +90,7 @@ struct TranslationUnit
     std::vector<std::string> local_arguments;
     std::filesystem::path work_directory;
     std::string module_set = "default";
+    BmiCompatibility bmi_compatibility;
     bool is_private = false;
 };
 
@@ -75,6 +106,8 @@ struct ExternalModule
 {
     std::string name;
     std::filesystem::path bmi_path;
+    std::string module_set = "default";
+    BmiCompatibility bmi_compatibility;
 };
 
 struct DependencyFacts
@@ -85,6 +118,7 @@ struct DependencyFacts
     std::vector<ExternalModule> external_modules;
     std::vector<InputArtifact> inputs;
     std::vector<ModuleSet> module_sets;
+    std::vector<BmiCacheRecord> bmi_cache;
 };
 
 enum class DiagnosticCode

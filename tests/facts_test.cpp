@@ -134,6 +134,49 @@ void plans_std_compat_after_std()
             "std.compat was not planned after std");
 }
 
+void separates_provider_compatibility_scopes()
+{
+    cxx_modgraph::TranslationUnit debug{.source_path = "src/foo.cppm",
+                                        .object_path = "debug/foo.o",
+                                        .provides = {{"foo", "debug/foo.pcm"}}};
+    debug.bmi_compatibility.configuration = "debug";
+    cxx_modgraph::TranslationUnit asan = debug;
+    asan.object_path = "asan/foo.o";
+    asan.provides.front().bmi_path = "asan/foo.pcm";
+    asan.bmi_compatibility.configuration = "asan";
+    cxx_modgraph::TranslationUnit consumer{
+        .source_path = "src/main.cpp", .object_path = "asan/main.o", .required_modules = {"foo"}};
+    consumer.bmi_compatibility.configuration = "asan";
+    cxx_modgraph::DependencyFacts facts;
+    facts.translation_units = {debug, asan, consumer};
+    const auto result = cxx_modgraph::analyze(facts);
+    require(result.ok(), "configuration-specific translations were rejected");
+    require(result.graph.topological_sort().plan.topological_order.back() == "src/main.cpp",
+            "consumer did not use the provider in its compatibility scope");
+}
+
+void round_trips_compatibility_and_cache_records()
+{
+    auto facts = example_facts();
+    auto &compat = facts.translation_units.front().bmi_compatibility;
+    compat.compiler_executable = "/usr/bin/clang++";
+    compat.compiler_version = "20.1";
+    compat.target_triple = "x86_64-linux-gnu";
+    compat.language_standard = "c++23";
+    compat.configuration = "asan";
+    compat.user_key = "vendor-policy-v2";
+    compat.adapter_keys = {"clang-modules-revision=7"};
+    facts.bmi_cache.push_back({"geometry", "default", "sha256:source", "sha256:recipe",
+                               "sha256:compat", "sha256:bmi", "sha256:object"});
+    const auto parsed = cxx_modgraph::parse_json(cxx_modgraph::to_json(facts));
+    require(parsed.ok(), "compatibility/cache JSON did not parse");
+    require(parsed.facts->translation_units.front().bmi_compatibility == compat,
+            "BMI compatibility scope did not round trip");
+    require(parsed.facts->bmi_cache.size() == 1 &&
+                parsed.facts->bmi_cache.front().recipe_digest == "sha256:recipe",
+            "BMI cache record did not round trip");
+}
+
 } // namespace
 
 int main()
@@ -144,4 +187,6 @@ int main()
     parses_emitted_json();
     diagnoses_json_errors();
     plans_std_compat_after_std();
+    separates_provider_compatibility_scopes();
+    round_trips_compatibility_and_cache_records();
 }

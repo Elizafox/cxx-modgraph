@@ -124,7 +124,7 @@ public:
 
         reject_unknown(*root,
                        {"version", "source-root", "translation-units", "external-modules", "inputs",
-                        "module-sets"},
+                        "module-sets", "bmi-cache"},
                        "root");
 
         DependencyFacts facts;
@@ -151,6 +151,7 @@ public:
         decode_external(property(*root, "external-modules", "root"), facts);
         decode_inputs(property(*root, "inputs", "root", false), facts);
         decode_sets(property(*root, "module-sets", "root", false), facts);
+        decode_cache(property(*root, "bmi-cache", "root", false), facts);
 
         return facts;
     }
@@ -288,7 +289,7 @@ private:
             reject_unknown(*item,
                            {"source", "object", "provides", "requires", "dependency-reasons",
                             "provenance", "arguments", "local-arguments", "work-directory",
-                            "module-set", "private"},
+                            "module-set", "private", "bmi-compatibility"},
                            context);
             TranslationUnit unit;
             if (const std::string *source =
@@ -319,6 +320,8 @@ private:
                 unit.module_set = *x;
             if (auto x = boolean(property(*item, "private", context, false), context + ".private"))
                 unit.is_private = *x;
+            decode_compatibility(property(*item, "bmi-compatibility", context, false),
+                                 context + ".bmi-compatibility", unit.bmi_compatibility);
             facts.translation_units.push_back(std::move(unit));
         }
     }
@@ -332,6 +335,72 @@ private:
             for (std::size_t i = 0; i < items->size(); ++i)
                 if (auto x = string(&(*items)[i], context + "[" + std::to_string(i) + "]"))
                     result.push_back(*x);
+    }
+
+    void decode_compatibility(const JsonValue *value, const std::string &context,
+                              BmiCompatibility &result)
+    {
+        if (!value)
+            return;
+        const auto *item = object(value, context);
+        if (!item)
+            return;
+        reject_unknown(*item,
+                       {"compiler-executable", "compiler-version", "target-triple", "sysroot",
+                        "language-standard", "standard-library", "configuration", "user-key",
+                        "adapter-keys"},
+                       context);
+        const auto get = [&](std::string_view name, std::string &out)
+        {
+            if (auto x = string(property(*item, name, context, false),
+                                context + "." + std::string(name)))
+                out = *x;
+        };
+        get("compiler-executable", result.compiler_executable);
+        get("compiler-version", result.compiler_version);
+        get("target-triple", result.target_triple);
+        get("sysroot", result.sysroot);
+        get("language-standard", result.language_standard);
+        get("standard-library", result.standard_library);
+        get("configuration", result.configuration);
+        get("user-key", result.user_key);
+        decode_strings(property(*item, "adapter-keys", context, false), context + ".adapter-keys",
+                       result.adapter_keys);
+    }
+
+    void decode_cache(const JsonValue *value, DependencyFacts &facts)
+    {
+        if (!value)
+            return;
+        const auto *items = array(value, "bmi-cache");
+        if (!items)
+            return;
+        for (std::size_t i = 0; i < items->size(); ++i)
+        {
+            const std::string c = "bmi-cache[" + std::to_string(i) + "]";
+            const auto *item = object(&(*items)[i], c);
+            if (!item)
+                continue;
+            reject_unknown(*item,
+                           {"module", "module-set", "source-digest", "recipe-digest",
+                            "compatibility-key", "bmi-digest", "object-digest"},
+                           c);
+            BmiCacheRecord r;
+            const auto get = [&](std::string_view name, std::string &out, bool required = true)
+            {
+                if (auto x =
+                        string(property(*item, name, c, required), c + "." + std::string(name)))
+                    out = *x;
+            };
+            get("module", r.module);
+            get("module-set", r.module_set, false);
+            get("source-digest", r.source_digest);
+            get("recipe-digest", r.recipe_digest);
+            get("compatibility-key", r.compatibility_key);
+            get("bmi-digest", r.bmi_digest);
+            get("object-digest", r.object_digest, false);
+            facts.bmi_cache.push_back(std::move(r));
+        }
     }
 
     void decode_sets(const JsonValue *value, DependencyFacts &facts)
@@ -522,7 +591,7 @@ private:
                 continue;
             }
 
-            reject_unknown(*item, {"name", "bmi"}, context);
+            reject_unknown(*item, {"name", "bmi", "module-set", "bmi-compatibility"}, context);
             ExternalModule module;
             if (const std::string *name =
                     string(property(*item, "name", context), context + ".name"))
@@ -534,6 +603,11 @@ private:
             {
                 module.bmi_path = *bmi;
             }
+            if (auto x =
+                    string(property(*item, "module-set", context, false), context + ".module-set"))
+                module.module_set = *x;
+            decode_compatibility(property(*item, "bmi-compatibility", context, false),
+                                 context + ".bmi-compatibility", module.bmi_compatibility);
 
             facts.external_modules.push_back(std::move(module));
         }

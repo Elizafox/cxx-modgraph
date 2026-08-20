@@ -29,6 +29,29 @@ struct ModuleImport
     std::filesystem::path bmi_path;
 };
 
+std::string scope_key(std::string_view module, std::string_view set,
+                      const BmiCompatibility &compatibility)
+{
+    std::string result(set.empty() ? "default" : set);
+    const auto add = [&](std::string_view value)
+    {
+        result.push_back('\0');
+        result += value;
+    };
+    add(compatibility.compiler_executable);
+    add(compatibility.compiler_version);
+    add(compatibility.target_triple);
+    add(compatibility.sysroot);
+    add(compatibility.language_standard);
+    add(compatibility.standard_library);
+    add(compatibility.configuration.empty() ? "default" : compatibility.configuration);
+    add(compatibility.user_key);
+    for (const auto &key : compatibility.adapter_keys)
+        add(key);
+    add(module);
+    return result;
+}
+
 std::string normalized(const std::filesystem::path &path)
 {
     return path.lexically_normal().generic_string();
@@ -145,7 +168,10 @@ std::vector<ModuleImport> import_bmis(const TranslationUnit &unit,
             return;
         }
 
-        const auto provider = providers.find(required);
+        auto provider =
+            providers.find(scope_key(required, unit.module_set, unit.bmi_compatibility));
+        if (provider == providers.end())
+            provider = providers.find(scope_key(required, "default", unit.bmi_compatibility));
         if (provider == providers.end())
         {
             return;
@@ -205,13 +231,14 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
     std::map<std::string, ModuleProvider> providers;
     for (const ExternalModule &module : facts.external_modules)
     {
-        providers.try_emplace(module.name, ModuleProvider{module.bmi_path, true, {}});
+        providers.try_emplace(scope_key(module.name, module.module_set, module.bmi_compatibility),
+                              ModuleProvider{module.bmi_path, true, {}});
     }
     for (const TranslationUnit &unit : facts.translation_units)
     {
         for (const ProvidedModule &module : unit.provides)
         {
-            providers.try_emplace(module.name,
+            providers.try_emplace(scope_key(module.name, unit.module_set, unit.bmi_compatibility),
                                   ModuleProvider{module.bmi_path, false, unit.required_modules});
         }
     }
