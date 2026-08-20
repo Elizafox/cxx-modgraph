@@ -37,7 +37,9 @@ PackageImportResult import_package_metadata(std::string_view input,
         if (!root.is_object() || root.value("version", 0) != 1 || !root.contains("package") ||
             !root["package"].is_string() || !root.contains("modules") ||
             !root["modules"].is_array())
+        {
             return {.errors = {error("package metadata requires version 1, package, and modules")}};
+        }
 
         DependencyFacts facts;
         const std::filesystem::path base = manifest_path.parent_path();
@@ -50,8 +52,11 @@ PackageImportResult import_package_metadata(std::string_view input,
                 !item["logical-name"].is_string() || !item.contains("source") ||
                 !item["source"].is_string() || !item.contains("arguments") ||
                 !item["arguments"].is_array())
+            {
                 return {.errors = {error(
                             context + " requires logical-name, source, and an arguments array")}};
+            }
+
             TranslationUnit unit;
             unit.source_path = resolve(base, item["source"].get<std::string>());
             unit.object_path = item.contains("object")
@@ -60,11 +65,18 @@ PackageImportResult import_package_metadata(std::string_view input,
             const std::string name = item["logical-name"].get<std::string>();
             std::filesystem::path bmi;
             if (item.contains("compatible-bmi") && item["compatible-bmi"].is_string())
+            {
                 bmi = resolve(base, item["compatible-bmi"].get<std::string>());
+            }
             else if (item.contains("bmi") && item["bmi"].is_string())
+            {
                 bmi = resolve(base, item["bmi"].get<std::string>());
+            }
             else
+            {
                 bmi = (base / "bmi" / (name + ".pcm")).lexically_normal();
+            }
+
             unit.provides.push_back({name, bmi, true, "installed package metadata"});
             unit.arguments = item["arguments"].get<std::vector<std::string>>();
             unit.local_arguments = item.value("local-arguments", std::vector<std::string>{});
@@ -76,6 +88,7 @@ PackageImportResult import_package_metadata(std::string_view input,
             unit.is_private = item.value("private", false);
             facts.translation_units.push_back(std::move(unit));
         }
+
         auto visible = root.value("visible-sets", std::vector<std::string>{});
         const auto dependencies = root.value("dependencies", std::vector<std::string>{});
         visible.insert(visible.end(), dependencies.begin(), dependencies.end());
@@ -83,6 +96,7 @@ PackageImportResult import_package_metadata(std::string_view input,
                       root.value("baseline-arguments", std::vector<std::string>{}),
                       std::move(visible)};
         facts.module_sets.push_back(std::move(set));
+
         return {.facts = std::move(facts), .errors = {}};
     }
     catch (const json::exception &exception)

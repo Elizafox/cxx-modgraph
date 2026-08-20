@@ -55,7 +55,9 @@ std::vector<NodeId> DependencyGraph::cycle_witness() const
             std::vector<NodeId> path = std::move(pending.front());
             pending.pop();
             if (!best.empty() && path.size() + 1 > best.size())
+            {
                 continue;
+            }
             for (const NodeId &next : dependents_.at(path.back()))
             {
                 if (next == start)
@@ -64,13 +66,17 @@ std::vector<NodeId> DependencyGraph::cycle_witness() const
                     candidate.push_back(start);
                     if (best.empty() || candidate.size() < best.size() ||
                         (candidate.size() == best.size() && candidate < best))
+                    {
                         best = std::move(candidate);
+                    }
                     continue;
                 }
                 const std::size_t distance = path.size();
                 const auto found = shortest.find(next);
                 if (found != shortest.end() && found->second <= distance)
+                {
                     continue;
+                }
                 shortest[next] = distance;
                 auto candidate = path;
                 candidate.push_back(next);
@@ -85,25 +91,35 @@ std::vector<NodeId> DependencyGraph::critical_path() const
 {
     const SortResult sorted = topological_sort();
     if (sorted.has_cycle())
+    {
         return {};
+    }
     std::map<NodeId, std::vector<NodeId>> best;
     for (const NodeId &node : sorted.plan.topological_order)
     {
         if (best[node].empty())
+        {
             best[node] = {node};
+        }
         for (const NodeId &next : dependents_.at(node))
         {
             auto candidate = best[node];
             candidate.push_back(next);
             if (candidate.size() > best[next].size() ||
                 (candidate.size() == best[next].size() && candidate < best[next]))
+            {
                 best[next] = std::move(candidate);
+            }
         }
     }
     std::vector<NodeId> result;
     for (const auto &[unused, path] : best)
+    {
         if (path.size() > result.size() || (path.size() == result.size() && path < result))
+        {
             result = path;
+        }
+    }
     return result;
 }
 

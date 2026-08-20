@@ -170,12 +170,17 @@ private:
         {
             const auto *items = array(property(root, name, "root", false), name);
             if (!items)
+            {
                 return;
+            }
+
             for (std::size_t i = 0; i < items->size(); ++i)
             {
                 const std::string context = std::string(name) + "[" + std::to_string(i) + "]";
                 if (const auto *item = object(&(*items)[i], context))
+                {
                     decode(*item, context);
+                }
             }
         };
         decode_objects("path-remappings",
@@ -184,9 +189,13 @@ private:
                            reject_unknown(item, {"from", "to"}, c);
                            PathRemapping value;
                            if (auto x = string(property(item, "from", c), c + ".from"))
+                           {
                                value.from = *x;
+                           }
                            if (auto x = string(property(item, "to", c), c + ".to"))
+                           {
                                value.to = *x;
+                           }
                            facts.path_remappings.push_back(std::move(value));
                        });
         decode_objects("environment-inputs",
@@ -195,10 +204,14 @@ private:
                            reject_unknown(item, {"name", "value-digest"}, c);
                            EnvironmentInput value;
                            if (auto x = string(property(item, "name", c), c + ".name"))
+                           {
                                value.name = *x;
+                           }
                            if (auto x =
                                    string(property(item, "value-digest", c), c + ".value-digest"))
+                           {
                                value.value_digest = *x;
+                           }
                            facts.environment_inputs.push_back(std::move(value));
                        });
         decode_objects(
@@ -208,15 +221,25 @@ private:
                 reject_unknown(item, {"name", "path", "digest", "version", "namespace"}, c);
                 ToolIdentity value;
                 if (auto x = string(property(item, "name", c), c + ".name"))
+                {
                     value.name = *x;
+                }
                 if (auto x = string(property(item, "path", c), c + ".path"))
+                {
                     value.path = *x;
+                }
                 if (auto x = string(property(item, "digest", c), c + ".digest"))
+                {
                     value.digest = *x;
+                }
                 if (auto x = string(property(item, "version", c, false), c + ".version"))
+                {
                     value.version = *x;
+                }
                 if (auto x = string(property(item, "namespace", c, false), c + ".namespace"))
+                {
                     value.execution_namespace = *x;
+                }
                 facts.tools.push_back(std::move(value));
             });
         decode_objects("content-digests",
@@ -225,18 +248,28 @@ private:
                            reject_unknown(item, {"kind", "path", "digest", "namespace"}, c);
                            ContentDigest value;
                            if (auto x = string(property(item, "kind", c), c + ".kind"))
+                           {
                                value.kind = *x;
+                           }
                            if (auto x = string(property(item, "path", c), c + ".path"))
+                           {
                                value.path = *x;
+                           }
                            if (auto x = string(property(item, "digest", c), c + ".digest"))
+                           {
                                value.digest = *x;
+                           }
                            if (auto x =
                                    string(property(item, "namespace", c, false), c + ".namespace"))
+                           {
                                value.artifact_namespace = *x;
+                           }
                            facts.content_digests.push_back(std::move(value));
                        });
         if (auto x = string(property(root, "graph-digest", "root", false), "graph-digest"))
+        {
             facts.graph_digest = *x;
+        }
     }
 
     void error(std::string message)
@@ -254,8 +287,10 @@ private:
         }
 
         if (required)
+        {
             error(std::string(context) + " is missing required property '" + std::string(name) +
                   "'");
+        }
         return nullptr;
     }
 
@@ -326,10 +361,14 @@ private:
     const bool *boolean(const JsonValue *value, std::string_view context)
     {
         if (value == nullptr)
+        {
             return nullptr;
+        }
         const auto *result = std::get_if<bool>(&value->value);
         if (result == nullptr)
+        {
             error(std::string(context) + " must be a boolean");
+        }
         return result;
     }
 
@@ -391,12 +430,18 @@ private:
                            context + ".local-arguments", unit.local_arguments);
             if (auto x = string(property(*item, "work-directory", context, false),
                                 context + ".work-directory"))
+            {
                 unit.work_directory = *x;
+            }
             if (auto x =
                     string(property(*item, "module-set", context, false), context + ".module-set"))
+            {
                 unit.module_set = *x;
+            }
             if (auto x = boolean(property(*item, "private", context, false), context + ".private"))
+            {
                 unit.is_private = *x;
+            }
             decode_compatibility(property(*item, "bmi-compatibility", context, false),
                                  context + ".bmi-compatibility", unit.bmi_compatibility);
             facts.translation_units.push_back(std::move(unit));
@@ -407,21 +452,36 @@ private:
                         std::vector<std::string> &result)
     {
         if (!value)
+        {
             return;
+        }
+
         if (const auto *items = array(value, context))
+        {
             for (std::size_t i = 0; i < items->size(); ++i)
+            {
                 if (auto x = string(&(*items)[i], context + "[" + std::to_string(i) + "]"))
+                {
                     result.push_back(*x);
+                }
+            }
+        }
     }
 
     void decode_compatibility(const JsonValue *value, const std::string &context,
                               BmiCompatibility &result)
     {
         if (!value)
+        {
             return;
+        }
+
         const auto *item = object(value, context);
         if (!item)
+        {
             return;
+        }
+
         reject_unknown(*item,
                        {"compiler-executable", "compiler-version", "target-triple", "sysroot",
                         "language-standard", "standard-library", "configuration", "user-key",
@@ -431,8 +491,11 @@ private:
         {
             if (auto x = string(property(*item, name, context, false),
                                 context + "." + std::string(name)))
+            {
                 out = *x;
+            }
         };
+
         get("compiler-executable", result.compiler_executable);
         get("compiler-version", result.compiler_version);
         get("target-triple", result.target_triple);
@@ -448,16 +511,22 @@ private:
     void decode_cache(const JsonValue *value, DependencyFacts &facts)
     {
         if (!value)
+        {
             return;
+        }
         const auto *items = array(value, "bmi-cache");
         if (!items)
+        {
             return;
+        }
         for (std::size_t i = 0; i < items->size(); ++i)
         {
             const std::string c = "bmi-cache[" + std::to_string(i) + "]";
             const auto *item = object(&(*items)[i], c);
             if (!item)
+            {
                 continue;
+            }
             reject_unknown(*item,
                            {"module", "module-set", "source-digest", "recipe-digest",
                             "compatibility-key", "bmi-digest", "object-digest"},
@@ -467,7 +536,9 @@ private:
             {
                 if (auto x =
                         string(property(*item, name, c, required), c + "." + std::string(name)))
+                {
                     out = *x;
+                }
             };
             get("module", r.module);
             get("module-set", r.module_set, false);
@@ -483,23 +554,33 @@ private:
     void decode_sets(const JsonValue *value, DependencyFacts &facts)
     {
         if (!value)
+        {
             return;
+        }
         const auto *items = array(value, "module-sets");
         if (!items)
+        {
             return;
+        }
         for (std::size_t i = 0; i < items->size(); ++i)
         {
             const std::string context = "module-sets[" + std::to_string(i) + "]";
             const auto *item = object(&(*items)[i], context);
             if (!item)
+            {
                 continue;
+            }
             reject_unknown(*item, {"name", "family-name", "baseline-arguments", "visible-sets"},
                            context);
             ModuleSet set;
             if (auto x = string(property(*item, "name", context), context + ".name"))
+            {
                 set.name = *x;
+            }
             if (auto x = string(property(*item, "family-name", context), context + ".family-name"))
+            {
                 set.family_name = *x;
+            }
             decode_strings(property(*item, "baseline-arguments", context),
                            context + ".baseline-arguments", set.baseline_arguments);
             decode_strings(property(*item, "visible-sets", context, false),
@@ -541,11 +622,15 @@ private:
             if (const bool *is_interface =
                     boolean(property(*item, "is-interface", item_context, false),
                             item_context + ".is-interface"))
+            {
                 module.is_interface = *is_interface;
+            }
             if (const std::string *lookup =
                     string(property(*item, "lookup-method", item_context, false),
                            item_context + ".lookup-method"))
+            {
                 module.lookup_method = *lookup;
+            }
 
             unit.provides.push_back(std::move(module));
         }
@@ -554,27 +639,41 @@ private:
     void decode_reasons(const JsonValue *value, const std::string &context, TranslationUnit &unit)
     {
         if (value == nullptr)
+        {
             return;
+        }
         const auto *items = array(value, context + ".dependency-reasons");
         if (!items)
+        {
             return;
+        }
         for (std::size_t i = 0; i < items->size(); ++i)
         {
             const std::string c = context + ".dependency-reasons[" + std::to_string(i) + "]";
             const auto *item = object(&(*items)[i], c);
             if (!item)
+            {
                 continue;
+            }
             reject_unknown(*item, {"module", "reason", "lookup-method", "raw-requirement"}, c);
             DependencyReason reason;
             if (auto p = string(property(*item, "module", c), c + ".module"))
+            {
                 reason.module = *p;
+            }
             if (auto p = string(property(*item, "reason", c), c + ".reason"))
+            {
                 reason.reason = *p;
+            }
             if (auto p = string(property(*item, "lookup-method", c), c + ".lookup-method"))
+            {
                 reason.lookup_method = *p;
+            }
             if (auto p =
                     string(property(*item, "raw-requirement", c, false), c + ".raw-requirement"))
+            {
                 reason.raw_requirement_json = *p;
+            }
             unit.dependency_reasons.push_back(std::move(reason));
         }
     }
@@ -583,52 +682,80 @@ private:
                            TranslationUnit &unit)
     {
         if (!value)
+        {
             return;
+        }
         const auto *item = object(value, context + ".provenance");
         if (!item)
+        {
             return;
+        }
         reject_unknown(*item,
                        {"rule-source", "scanner", "scanner-version", "original-output",
                         "source-lookup", "source-path-unique", "raw-rule"},
                        context + ".provenance");
         ScanProvenance p;
         if (auto x = string(property(*item, "rule-source", context, false), "rule-source"))
+        {
             p.rule_source = *x;
+        }
         if (auto x = string(property(*item, "scanner", context, false), "scanner"))
+        {
             p.scanner = *x;
+        }
         if (auto x = string(property(*item, "scanner-version", context, false), "scanner-version"))
+        {
             p.scanner_version = *x;
+        }
         if (auto x = string(property(*item, "original-output", context, false), "original-output"))
+        {
             p.original_output = *x;
+        }
         if (auto x = string(property(*item, "source-lookup", context, false), "source-lookup"))
+        {
             p.source_lookup = *x;
+        }
         if (auto x = boolean(property(*item, "source-path-unique", context, false),
                              "source-path-unique"))
+        {
             p.source_path_unique = *x;
+        }
         if (auto x = string(property(*item, "raw-rule", context, false), "raw-rule"))
+        {
             p.raw_rule_json = *x;
+        }
         unit.provenance = std::move(p);
     }
 
     void decode_inputs(const JsonValue *value, DependencyFacts &facts)
     {
         if (!value)
+        {
             return;
+        }
         const auto *items = array(value, "inputs");
         if (!items)
+        {
             return;
+        }
         for (std::size_t i = 0; i < items->size(); ++i)
         {
             const std::string c = "inputs[" + std::to_string(i) + "]";
             const auto *item = object(&(*items)[i], c);
             if (!item)
+            {
                 continue;
+            }
             reject_unknown(*item, {"path", "digest"}, c);
             InputArtifact a;
             if (auto x = string(property(*item, "path", c), c + ".path"))
+            {
                 a.path = *x;
+            }
             if (auto x = string(property(*item, "digest", c), c + ".digest"))
+            {
                 a.digest = *x;
+            }
             facts.inputs.push_back(std::move(a));
         }
     }
@@ -682,7 +809,9 @@ private:
             }
             if (auto x =
                     string(property(*item, "module-set", context, false), context + ".module-set"))
+            {
                 module.module_set = *x;
+            }
             decode_compatibility(property(*item, "bmi-compatibility", context, false),
                                  context + ".bmi-compatibility", module.bmi_compatibility);
 

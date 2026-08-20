@@ -38,6 +38,7 @@ std::string scope_key(std::string_view module, std::string_view set,
         result.push_back('\0');
         result += value;
     };
+
     add(compatibility.compiler_executable);
     add(compatibility.compiler_version);
     add(compatibility.target_triple);
@@ -46,9 +47,14 @@ std::string scope_key(std::string_view module, std::string_view set,
     add(compatibility.standard_library);
     add(compatibility.configuration.empty() ? "default" : compatibility.configuration);
     add(compatibility.user_key);
+
     for (const auto &key : compatibility.adapter_keys)
+    {
         add(key);
+    }
+
     add(module);
+
     return result;
 }
 
@@ -117,6 +123,7 @@ void write_output_groups(std::ostream &output, const DependencyFacts &facts)
             groups.emplace_back(unit.provides.front().bmi_path, unit.object_path);
         }
     }
+
     std::ranges::sort(groups, {}, [](const auto &group) { return normalized(group.first); });
 
     output << "CXX_MODGRAPH_OUTPUT_GROUPS :=";
@@ -124,6 +131,7 @@ void write_output_groups(std::ostream &output, const DependencyFacts &facts)
     {
         output << " \\\n    " << escaped_path(bmi) << '=' << escaped_path(object);
     }
+
     output << "\n\n";
 }
 
@@ -152,6 +160,7 @@ void write_prerequisites(std::ostream &output, const std::filesystem::path &targ
     {
         output << " \\\n    " << escaped_path(prerequisite);
     }
+
     output << "\n\n";
 }
 
@@ -171,7 +180,10 @@ std::vector<ModuleImport> import_bmis(const TranslationUnit &unit,
         auto provider =
             providers.find(scope_key(required, unit.module_set, unit.bmi_compatibility));
         if (provider == providers.end())
+        {
             provider = providers.find(scope_key(required, "default", unit.bmi_compatibility));
+        }
+
         if (provider == providers.end())
         {
             return;
@@ -192,6 +204,7 @@ std::vector<ModuleImport> import_bmis(const TranslationUnit &unit,
             }
         }
     };
+
     for (const std::string &required : unit.required_modules)
     {
         visit(required, visit);
@@ -234,6 +247,7 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
         providers.try_emplace(scope_key(module.name, module.module_set, module.bmi_compatibility),
                               ModuleProvider{module.bmi_path, true, {}});
     }
+
     for (const TranslationUnit &unit : facts.translation_units)
     {
         for (const ProvidedModule &module : unit.provides)
@@ -245,6 +259,7 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
 
     std::vector<std::filesystem::path> bmi_targets;
     std::vector<std::filesystem::path> object_targets;
+
     for (const TranslationUnit &unit : facts.translation_units)
     {
         for (const ProvidedModule &module : unit.provides)
@@ -256,6 +271,7 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
             object_targets.push_back(unit.object_path);
         }
     }
+
     std::ranges::sort(bmi_targets, {}, normalized);
     std::ranges::sort(object_targets, {}, normalized);
 
@@ -309,10 +325,12 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
             write_target_variable(output, unit->object_path, "CXX_MODGRAPH_IMPORT_BMIS",
                                   imported_bmis);
             std::vector<ModuleImport> provided_mappings;
+
             for (const ProvidedModule &module : provided)
             {
                 provided_mappings.push_back({module.name, module.bmi_path});
             }
+
             write_module_mappings(output, unit->object_path, "CXX_MODGRAPH_PROVIDES",
                                   provided_mappings);
             write_module_mappings(output, unit->object_path, "CXX_MODGRAPH_IMPORTS", imports);

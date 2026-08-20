@@ -84,7 +84,10 @@ void write_compatibility(std::ostream &output, const BmiCompatibility &value)
     for (std::size_t i = 0; i < value.adapter_keys.size(); ++i)
     {
         if (i)
+        {
             output << ", ";
+        }
+
         write_escaped(output, value.adapter_keys[i]);
     }
     output << "]}";
@@ -101,6 +104,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
                           return std::tie(a.source_path, a.module_set, a.bmi_compatibility) <
                                  std::tie(b.source_path, b.module_set, b.bmi_compatibility);
                       });
+
     std::vector<ExternalModule> external = facts.external_modules;
     std::ranges::sort(external, {}, &ExternalModule::name);
 
@@ -122,17 +126,24 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         for (std::size_t module_index = 0; module_index < unit.provides.size(); ++module_index)
         {
             const ProvidedModule &module = unit.provides[module_index];
+
             output << (module_index == 0 ? "\n" : ",\n") << "        {\"name\": ";
             write_escaped(output, module.name);
+
             output << ", \"bmi\": ";
             write_escaped(output, normalized(module.bmi_path));
+
             if (module.is_interface)
+            {
                 output << ", \"is-interface\": " << (*module.is_interface ? "true" : "false");
+            }
+
             if (!module.lookup_method.empty())
             {
                 output << ", \"lookup-method\": ";
                 write_escaped(output, module.lookup_method);
             }
+
             output << '}';
         }
 
@@ -144,67 +155,91 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             {
                 output << ", ";
             }
+
             write_escaped(output, unit.required_modules[required_index]);
         }
 
         output << "]";
+
         if (!unit.arguments.empty())
         {
             output << ",\n      \"arguments\": [";
+
             for (std::size_t i = 0; i < unit.arguments.size(); ++i)
             {
                 if (i)
+                {
                     output << ", ";
+                }
+
                 write_escaped(output, unit.arguments[i]);
             }
+
             output << ']';
         }
+
         if (!unit.local_arguments.empty())
         {
             output << ",\n      \"local-arguments\": [";
+
             for (std::size_t i = 0; i < unit.local_arguments.size(); ++i)
             {
                 if (i)
+                {
                     output << ", ";
+                }
+
                 write_escaped(output, unit.local_arguments[i]);
             }
+
             output << ']';
         }
+
         if (!unit.work_directory.empty())
         {
             output << ",\n      \"work-directory\": ";
             write_escaped(output, normalized(unit.work_directory));
         }
+
         if (!unit.module_set.empty() && unit.module_set != "default")
         {
             output << ",\n      \"module-set\": ";
             write_escaped(output, unit.module_set);
         }
+
         output << ",\n      \"bmi-compatibility\": ";
         write_compatibility(output, unit.bmi_compatibility);
         if (unit.is_private)
+        {
             output << ",\n      \"private\": true";
+        }
+
         if (!unit.dependency_reasons.empty())
         {
             output << ",\n      \"dependency-reasons\": [";
             for (std::size_t i = 0; i < unit.dependency_reasons.size(); ++i)
             {
                 const auto &r = unit.dependency_reasons[i];
+
                 output << (i ? ",\n" : "\n") << "        {\"module\": ";
                 write_escaped(output, r.module);
                 output << ", \"reason\": ";
                 write_escaped(output, r.reason);
                 output << ", \"lookup-method\": ";
                 write_escaped(output, r.lookup_method);
+
                 if (!r.raw_requirement_json.empty())
                 {
                     output << ", \"raw-requirement\": ";
                     write_escaped(output, r.raw_requirement_json);
                 }
+
                 output << '}';
             }
+
             output << "\n      ]";
         }
+
         if (unit.provenance)
         {
             const auto &p = *unit.provenance;
@@ -219,11 +254,13 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             output << ", \"source-lookup\": ";
             write_escaped(output, p.source_lookup);
             output << ", \"source-path-unique\": " << (p.source_path_unique ? "true" : "false");
+
             if (!p.raw_rule_json.empty())
             {
                 output << ", \"raw-rule\": ";
                 write_escaped(output, p.raw_rule_json);
             }
+
             output << '}';
         }
         output << "\n    }";
@@ -253,6 +290,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, facts.inputs[i].digest);
         output << '}';
     }
+
     output << (facts.inputs.empty() ? "]" : "\n  ]") << ",\n  \"module-sets\": [";
     std::vector<ModuleSet> sets = facts.module_sets;
     std::ranges::sort(sets, {}, &ModuleSet::name);
@@ -267,18 +305,27 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         for (std::size_t j = 0; j < set.baseline_arguments.size(); ++j)
         {
             if (j)
+            {
                 output << ", ";
+            }
+
             write_escaped(output, set.baseline_arguments[j]);
         }
+
         output << "], \"visible-sets\": [";
         for (std::size_t j = 0; j < set.visible_sets.size(); ++j)
         {
             if (j)
+            {
                 output << ", ";
+            }
+
             write_escaped(output, set.visible_sets[j]);
         }
+
         output << "]}";
     }
+
     output << (sets.empty() ? "]" : "\n  ]") << ",\n  \"bmi-cache\": [";
     auto cache = facts.bmi_cache;
     std::ranges::sort(cache, {}, &BmiCacheRecord::module);
@@ -301,6 +348,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, r.object_digest);
         output << '}';
     }
+
     output << (cache.empty() ? "]" : "\n  ]") << ",\n  \"path-remappings\": [";
     auto remappings = facts.path_remappings;
     std::ranges::sort(remappings, {}, &PathRemapping::from);
@@ -312,6 +360,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, normalized(remappings[i].to));
         output << '}';
     }
+
     output << (remappings.empty() ? "]" : "\n  ]") << ",\n  \"environment-inputs\": [";
     auto environment = facts.environment_inputs;
     std::ranges::sort(environment, {}, &EnvironmentInput::name);
@@ -323,6 +372,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, environment[i].value_digest);
         output << '}';
     }
+
     output << (environment.empty() ? "]" : "\n  ]") << ",\n  \"tools\": [";
     auto tools = facts.tools;
     std::ranges::sort(tools, {}, &ToolIdentity::name);
@@ -341,6 +391,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, tool.execution_namespace);
         output << '}';
     }
+
     output << (tools.empty() ? "]" : "\n  ]") << ",\n  \"content-digests\": [";
     auto digests = facts.content_digests;
     std::ranges::sort(digests, [](const ContentDigest &a, const ContentDigest &b)
@@ -358,6 +409,7 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, item.artifact_namespace);
         output << '}';
     }
+
     output << (digests.empty() ? "]" : "\n  ]") << ",\n  \"graph-digest\": ";
     write_escaped(output, facts.graph_digest);
     output << "\n}\n";

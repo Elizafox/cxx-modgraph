@@ -38,6 +38,7 @@ std::string scope_key(std::string_view module, std::string_view set,
         result.push_back('\0');
         result += value;
     };
+
     add(compatibility.compiler_executable);
     add(compatibility.compiler_version);
     add(compatibility.target_triple);
@@ -46,9 +47,14 @@ std::string scope_key(std::string_view module, std::string_view set,
     add(compatibility.standard_library);
     add(compatibility.configuration.empty() ? "default" : compatibility.configuration);
     add(compatibility.user_key);
+
     for (const auto &key : compatibility.adapter_keys)
+    {
         add(key);
+    }
+
     add(module);
+
     return result;
 }
 
@@ -117,7 +123,10 @@ std::vector<ModuleImport> imports_for(const TranslationUnit &unit,
 
         auto provider = providers.find(scope_key(name, unit.module_set, unit.bmi_compatibility));
         if (provider == providers.end())
+        {
             provider = providers.find(scope_key(name, "default", unit.bmi_compatibility));
+        }
+
         if (provider == providers.end())
         {
             return;
@@ -176,6 +185,7 @@ void write_edge(std::ostream &output, const std::filesystem::path &target, std::
            << escaped_path(target.parent_path().empty() ? std::filesystem::path{"."}
                                                         : target.parent_path())
            << '\n';
+
     if (!provided_bmi.empty())
     {
         output << "  provided_bmi = " << escaped_path(provided_bmi) << '\n';
@@ -198,10 +208,14 @@ void write_edge(std::ostream &output, const std::filesystem::path &target, std::
     {
         output << ' ' << escape(module.name + "=" + normalized(module.bmi_path));
     }
+
     output << "\n  msvc_module_flags =";
     for (const ModuleImport &module : imports)
+    {
         output << " /reference \"" << escape(module.name + "=" + normalized(module.bmi_path))
                << "\"";
+    }
+
     output << "\n\n";
 }
 
@@ -289,17 +303,27 @@ void write_ninja_dyndep(std::ostream &output, const DependencyFacts &facts)
 {
     std::map<std::string, ModuleProvider> providers;
     for (const ExternalModule &module : facts.external_modules)
+    {
         providers.try_emplace(scope_key(module.name, module.module_set, module.bmi_compatibility),
                               ModuleProvider{module.bmi_path, true, {}});
+    }
     for (const TranslationUnit &unit : facts.translation_units)
+    {
         for (const ProvidedModule &module : unit.provides)
+        {
             providers.try_emplace(scope_key(module.name, unit.module_set, unit.bmi_compatibility),
                                   ModuleProvider{module.bmi_path, false, unit.required_modules});
+        }
+    }
 
     std::vector<const TranslationUnit *> units;
     for (const auto &unit : facts.translation_units)
+    {
         if (!unit.object_path.empty())
+        {
             units.push_back(&unit);
+        }
+    }
     std::ranges::sort(units, {},
                       [](const TranslationUnit *unit) { return normalized(unit->object_path); });
 
@@ -309,13 +333,17 @@ void write_ninja_dyndep(std::ostream &output, const DependencyFacts &facts)
         output << "build " << escaped_path(unit->object_path);
         std::vector<std::filesystem::path> produced;
         for (const auto &module : unit->provides)
+        {
             produced.push_back(module.bmi_path);
+        }
         std::ranges::sort(produced, {}, normalized);
         if (!produced.empty())
         {
             output << " |";
             for (const auto &path : produced)
+            {
                 output << ' ' << escaped_path(path);
+            }
         }
         output << ": dyndep";
         const auto imports = imports_for(*unit, providers, facts, false);
@@ -323,11 +351,15 @@ void write_ninja_dyndep(std::ostream &output, const DependencyFacts &facts)
         {
             output << " |";
             for (const auto &module : imports)
+            {
                 output << ' ' << escaped_path(module.bmi_path);
+            }
         }
         output << '\n';
         if (!produced.empty())
+        {
             output << "  restat = 1\n";
+        }
     }
 }
 

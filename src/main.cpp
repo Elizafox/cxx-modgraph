@@ -80,6 +80,7 @@ std::string digest(std::string_view value)
         hash ^= c;
         hash *= 1099511628211ull;
     }
+
     std::ostringstream out;
     out << "fnv1a64:" << std::hex << std::setfill('0') << std::setw(16) << hash;
     return out.str();
@@ -98,18 +99,30 @@ std::string unit_digest(const cxx_modgraph::TranslationUnit &unit)
         add(module.name);
         add(module.bmi_path.generic_string());
     }
+
     for (const auto &module : unit.required_modules)
+    {
         add(module);
+    }
+
     for (const auto &argument : unit.arguments)
+    {
         add(argument);
+    }
+
     for (const auto &argument : unit.local_arguments)
+    {
         add(argument);
+    }
+
     add(unit.bmi_compatibility.compiler_executable);
     add(unit.bmi_compatibility.compiler_version);
     add(unit.bmi_compatibility.target_triple);
     add(unit.bmi_compatibility.sysroot);
     add(unit.bmi_compatibility.configuration);
+
     out << unit.is_private;
+
     return digest(out.str());
 }
 
@@ -285,9 +298,14 @@ int run(const Options &options)
             if (has_explicit_compatibility(options.compatibility))
             {
                 for (auto &unit : facts.translation_units)
+                {
                     unit.bmi_compatibility = options.compatibility;
+                }
+
                 for (auto &module : facts.external_modules)
+                {
                     module.bmi_compatibility = options.compatibility;
+                }
             }
             if (options.check_fresh)
             {
@@ -296,6 +314,7 @@ int run(const Options &options)
                     std::cerr << "error: graph has no recorded input digests\n";
                     return 1;
                 }
+
                 for (const auto &artifact : facts.inputs)
                 {
                     std::ifstream f(artifact.path, std::ios::binary);
@@ -306,7 +325,9 @@ int run(const Options &options)
                                   << "' is missing\n";
                         return 1;
                     }
+
                     s << f.rdbuf();
+
                     if (digest(s.str()) != artifact.digest)
                     {
                         std::cerr << "error: graph is stale: '" << artifact.path.string()
@@ -418,8 +439,11 @@ int run(const Options &options)
         if (!imported.ok())
         {
             for (const auto &error : imported.errors)
+            {
                 std::cerr << "error:" << error.line << ':' << error.column << ": " << error.message
                           << '\n';
+            }
+
             return 1;
         }
         auto &package = *imported.facts;
@@ -446,18 +470,25 @@ int run(const Options &options)
             std::cerr << "error: --daemon requires an initial canonical file input (not stdin)\n";
             return 2;
         }
+
         if (!analysis.ok())
         {
             for (const auto &diagnostic : analysis.diagnostics)
+            {
                 std::cerr << "error: " << diagnostic.message << '\n';
+            }
             return 1;
         }
+
         cxx_modgraph::IncrementalState state(std::move(facts));
         std::string command;
         while (std::getline(std::cin, command))
         {
             if (command == "quit")
+            {
                 break;
+            }
+
             std::ifstream snapshot(command);
             auto parsed =
                 snapshot ? cxx_modgraph::read_json(snapshot) : cxx_modgraph::JsonParseResult{};
@@ -467,6 +498,7 @@ int run(const Options &options)
                           << std::flush;
                 continue;
             }
+
             std::set<std::string> next_sources;
             bool topology_changed = false;
             std::set<std::string> affected;
@@ -480,18 +512,28 @@ int run(const Options &options)
                                              return old.source_path.lexically_normal() ==
                                                     unit.source_path.lexically_normal();
                                          });
+
                 if (current != state.facts().translation_units.end() &&
                     unit_digest(*current) == unit_digest(unit))
+                {
                     continue;
+                }
+
                 auto report = state.update(std::move(unit));
                 topology_changed = topology_changed || report.topology_changed;
                 affected.insert(report.affected_translation_units.begin(),
                                 report.affected_translation_units.end());
             }
+
             std::vector<std::filesystem::path> removed;
             for (const auto &unit : state.facts().translation_units)
+            {
                 if (!next_sources.contains(unit.source_path.lexically_normal().generic_string()))
+                {
                     removed.push_back(unit.source_path);
+                }
+            }
+
             for (const auto &source : removed)
             {
                 auto report = state.erase(source);
@@ -499,24 +541,33 @@ int run(const Options &options)
                 affected.insert(report.affected_translation_units.begin(),
                                 report.affected_translation_units.end());
             }
+
             std::cout << "{\"ok\":" << (state.analysis().ok() ? "true" : "false")
                       << ",\"topology-changed\":" << (topology_changed ? "true" : "false")
                       << ",\"affected\":[";
             std::size_t index = 0;
             for (const auto &source : affected)
+            {
                 std::cout << (index++ ? "," : "") << std::quoted(source);
+            }
+
             std::cout << "]}\n" << std::flush;
         }
+
         return 0;
     }
+
     if (options.query != Options::Query::none)
     {
         auto print_path = [](const std::vector<cxx_modgraph::NodeId> &path)
         {
             for (std::size_t i = 0; i < path.size(); ++i)
+            {
                 std::cout << (i ? " -> " : "") << path[i];
+            }
             std::cout << '\n';
         };
+
         if (options.query == Options::Query::cycle)
         {
             auto path = analysis.graph.cycle_witness();
@@ -525,9 +576,11 @@ int run(const Options &options)
                 std::cout << "no cycle\n";
                 return 0;
             }
+
             print_path(path);
             return 1;
         }
+
         if (options.query == Options::Query::critical_path)
         {
             auto path = analysis.graph.critical_path();
@@ -536,6 +589,7 @@ int run(const Options &options)
                 std::cerr << "error: critical path is undefined for a cyclic graph\n";
                 return 1;
             }
+
             print_path(path);
             return 0;
         }
@@ -544,25 +598,39 @@ int run(const Options &options)
         {
             bool provides = false;
             for (const auto &p : u.provides)
+            {
                 if (p.name == options.query_module)
+                {
                     provides = true;
+                }
+            }
+
             if (options.query == Options::Query::providers && provides)
             {
                 std::cout << options.query_module << " provided by " << u.source_path.string();
                 if (u.provenance)
+                {
                     std::cout << " (output " << u.provenance->original_output.string()
                               << ", scanner " << u.provenance->scanner << ' '
                               << u.provenance->scanner_version << ')';
+                }
+
                 std::cout << '\n';
                 found = true;
             }
+
             if (options.query == Options::Query::explain_module && provides)
             {
                 std::cout << "module " << options.query_module
                           << "\nprovider: " << u.source_path.string() << "\nbmi: ";
                 for (const auto &p : u.provides)
+                {
                     if (p.name == options.query_module)
+                    {
                         std::cout << p.bmi_path.string();
+                    }
+                }
+
                 std::cout << '\n';
                 found = true;
             }
@@ -570,12 +638,14 @@ int run(const Options &options)
                 u.source_path.lexically_normal() == options.query_source.lexically_normal())
             {
                 for (const auto &r : u.dependency_reasons)
+                {
                     if (r.module == options.query_module)
                     {
                         std::cout << u.source_path.string() << " requires " << r.module << ": "
                                   << r.reason << " (lookup: " << r.lookup_method << ")\n";
                         found = true;
                     }
+                }
                 if (!found && std::ranges::find(u.required_modules, options.query_module) !=
                                   u.required_modules.end())
                 {
@@ -586,11 +656,13 @@ int run(const Options &options)
             }
         }
         for (const auto &e : facts.external_modules)
+        {
             if (options.query == Options::Query::providers && e.name == options.query_module)
             {
                 std::cout << e.name << " provided externally by " << e.bmi_path.string() << '\n';
                 found = true;
             }
+        }
         if (!found)
         {
             std::cerr << "error: no matching graph fact\n";

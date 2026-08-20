@@ -57,9 +57,13 @@ std::string IncrementalState::topology_key() const
         std::ranges::sort(provides, {}, &ProvidedModule::name);
         std::ranges::sort(requirements);
         for (const auto &module : provides)
+        {
             out << 'P' << module.name << '\0';
+        }
         for (const auto &module : requirements)
+        {
             out << 'R' << module << '\0';
+        }
     }
     return out.str();
 }
@@ -71,18 +75,30 @@ IncrementalUpdate IncrementalState::update(TranslationUnit unit, std::string p16
     const std::string old_topology = topology_key();
     std::set<NodeId> seeds{source};
     for (const auto &[dependency, dependents] : reverse_edges_)
+    {
         if (dependency == source)
+        {
             seeds.insert(dependents.begin(), dependents.end());
+        }
+    }
     auto found = std::ranges::find_if(facts_.translation_units, [&](const auto &item)
                                       { return key(item.source_path) == source; });
     if (found == facts_.translation_units.end())
+    {
         facts_.translation_units.push_back(std::move(unit));
+    }
     else
+    {
         *found = std::move(unit);
+    }
     if (!p1689_digest.empty())
+    {
         p1689_digests_[source] = std::move(p1689_digest);
+    }
     if (!compile_command_digest.empty())
+    {
         compile_command_digests_[source] = std::move(compile_command_digest);
+    }
     return rebuild(std::move(seeds), old_topology);
 }
 
@@ -92,7 +108,9 @@ IncrementalUpdate IncrementalState::erase(const std::filesystem::path &source_pa
     const std::string old_topology = topology_key();
     std::set<NodeId> seeds{source};
     if (auto it = reverse_edges_.find(source); it != reverse_edges_.end())
+    {
         seeds.insert(it->second.begin(), it->second.end());
+    }
     std::erase_if(facts_.translation_units,
                   [&](const auto &unit) { return key(unit.source_path) == source; });
     p1689_digests_.erase(source);
@@ -106,12 +124,22 @@ IncrementalUpdate IncrementalState::rebuild(std::set<NodeId> affected, std::stri
     providers_.clear();
     reverse_edges_.clear();
     for (const auto &unit : facts_.translation_units)
+    {
         for (const auto &module : unit.provides)
+        {
             providers_[module.name] = key(unit.source_path);
+        }
+    }
     for (const auto &unit : facts_.translation_units)
+    {
         for (const auto &required : unit.required_modules)
+        {
             if (auto provider = providers_.find(required); provider != providers_.end())
+            {
                 reverse_edges_[provider->second].push_back(key(unit.source_path));
+            }
+        }
+    }
     for (auto &[unused, values] : reverse_edges_)
     {
         std::ranges::sort(values);
@@ -119,10 +147,18 @@ IncrementalUpdate IncrementalState::rebuild(std::set<NodeId> affected, std::stri
     }
     std::vector<NodeId> queue(affected.begin(), affected.end());
     for (std::size_t i = 0; i < queue.size(); ++i)
+    {
         if (auto it = reverse_edges_.find(queue[i]); it != reverse_edges_.end())
+        {
             for (const auto &dependent : it->second)
+            {
                 if (affected.insert(dependent).second)
+                {
                     queue.push_back(dependent);
+                }
+            }
+        }
+    }
     IncrementalUpdate result;
     result.topology_changed = old_topology != topology_key();
     result.affected_translation_units.assign(affected.begin(), affected.end());

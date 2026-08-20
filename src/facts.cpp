@@ -40,6 +40,7 @@ std::string compatibility_scope(const std::string &set, const BmiCompatibility &
         result.push_back('\0');
         result += value;
     };
+
     add(compatibility.compiler_executable);
     add(compatibility.compiler_version);
     add(compatibility.target_triple);
@@ -49,7 +50,10 @@ std::string compatibility_scope(const std::string &set, const BmiCompatibility &
     add(compatibility.configuration.empty() ? "default" : compatibility.configuration);
     add(compatibility.user_key);
     for (const auto &key : compatibility.adapter_keys)
+    {
         add(key);
+    }
+
     return result;
 }
 
@@ -57,7 +61,10 @@ std::string node_key(const TranslationUnit &unit, const std::set<std::string> &r
 {
     const std::string source = path_key(unit.source_path);
     if (!repeated.contains(source))
+    {
         return source;
+    }
+
     const std::string configuration = unit.bmi_compatibility.configuration.empty()
                                           ? "default"
                                           : unit.bmi_compatibility.configuration;
@@ -86,11 +93,17 @@ AnalysisResult analyze(const DependencyFacts &facts)
     std::map<std::string, std::string> providers;
     std::map<std::string, std::size_t> source_counts;
     for (const auto &unit : facts.translation_units)
+    {
         ++source_counts[path_key(unit.source_path)];
+    }
     std::set<std::string> repeated_sources;
     for (const auto &[source, count] : source_counts)
+    {
         if (count > 1)
+        {
             repeated_sources.insert(source);
+        }
+    }
     std::set<std::string> source_scopes;
 
     for (const ExternalModule &module : facts.external_modules)
@@ -187,8 +200,10 @@ AnalysisResult analyze(const DependencyFacts &facts)
 
             auto provider = providers.find(provider_key(required, scope));
             if (provider == providers.end() && set != "default")
+            {
                 provider = providers.find(
                     provider_key(required, compatibility_scope("default", unit.bmi_compatibility)));
+            }
             if (provider == providers.end())
             {
                 add_diagnostic(result, DiagnosticCode::missing_provider,
@@ -208,7 +223,9 @@ AnalysisResult analyze(const DependencyFacts &facts)
         const std::vector<NodeId> witness = result.graph.cycle_witness();
         std::string chain;
         for (const NodeId &node : witness)
+        {
             chain += (chain.empty() ? "" : " -> ") + node;
+        }
         add_diagnostic(result, DiagnosticCode::dependency_cycle,
                        "module dependencies contain a cycle: " + chain);
     }

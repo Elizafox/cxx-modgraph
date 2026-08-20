@@ -24,8 +24,12 @@ std::filesystem::path remap_path(const std::filesystem::path &path,
             best_size = from.native().size();
         }
     }
+
     if (!best)
+    {
         return normalized;
+    }
+
     return (best->to / normalized.lexically_relative(best->from.lexically_normal()))
         .lexically_normal();
 }
@@ -38,8 +42,10 @@ std::string content_digest(std::string_view value)
         hash ^= c;
         hash *= 1099511628211ull;
     }
+
     std::ostringstream out;
     out << "fnv1a64:" << std::hex << std::setfill('0') << std::setw(16) << hash;
+
     return out.str();
 }
 

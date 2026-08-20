@@ -85,10 +85,16 @@ public:
     const bool *boolean(const JsonValue *value, std::string_view context)
     {
         if (value == nullptr)
+        {
             return nullptr;
+        }
+
         const auto *result = std::get_if<bool>(&value->value);
         if (result == nullptr)
+        {
             error(std::string(context) + " must be a boolean");
+        }
+
         return result;
     }
 
@@ -139,24 +145,33 @@ std::vector<std::string> split_command(std::string_view command)
             escaped = false;
             continue;
         }
+
         if (c == '\\' && quote != '\'')
         {
             escaped = true;
             continue;
         }
+
         if (quote != 0)
         {
             if (c == quote)
+            {
                 quote = 0;
+            }
             else
+            {
                 current.push_back(c);
+            }
+
             continue;
         }
+
         if (c == '\'' || c == '"')
         {
             quote = c;
             continue;
         }
+
         if (c == ' ' || c == '\t')
         {
             if (!current.empty())
@@ -166,10 +181,16 @@ std::vector<std::string> split_command(std::string_view command)
             }
         }
         else
+        {
             current.push_back(c);
+        }
     }
+
     if (!current.empty())
+    {
         result.push_back(std::move(current));
+    }
+
     return result;
 }
 
@@ -197,21 +218,35 @@ std::map<std::string, CompileCommand> read_compilation_database(const JsonValue 
             reader.string(reader.property(*entry, "output", context), context + ".output");
         CompileCommand command;
         if (file != nullptr)
+        {
             command.source = *file;
+        }
+
         if (const std::string *directory = reader.string(
                 reader.property(*entry, "directory", context, false), context + ".directory"))
+        {
             command.directory = *directory;
+        }
+
         if (const JsonValue *arguments_value = reader.property(*entry, "arguments", context, false))
         {
             if (const auto *arguments = reader.array(arguments_value, context + ".arguments"))
+            {
                 for (std::size_t j = 0; j < arguments->size(); ++j)
+                {
                     if (const auto *argument =
                             reader.string(&(*arguments)[j], context + ".arguments"))
+                    {
                         command.arguments.push_back(*argument);
+                    }
+                }
+            }
         }
         else if (const std::string *text = reader.string(
                      reader.property(*entry, "command", context, false), context + ".command"))
+        {
             command.arguments = split_command(*text);
+        }
         if (file != nullptr && output != nullptr &&
             !result.emplace(*output, std::move(command)).second)
         {
@@ -278,9 +313,14 @@ void read_provides(const JsonValue::Object &rule, const std::string &context,
             ProvidedModule module{*name, bmi_path(*name, options)};
             if (const JsonValue *interface_value =
                     reader.property(*provided, "is-interface", item_context, false))
+            {
                 if (const bool *is_interface =
                         reader.boolean(interface_value, item_context + ".is-interface"))
+                {
                     module.is_interface = *is_interface;
+                }
+            }
+
             module.lookup_method = "P1689 logical-name";
             unit.provides.push_back(std::move(module));
         }
@@ -320,6 +360,27 @@ void read_requires(const JsonValue::Object &rule, const std::string &context, Tr
             unit.dependency_reasons.push_back(
                 {*name, "P1689 rule directly requires '" + *name + "'", "P1689 logical-name", {}});
         }
+        Priority 5 : carefully investigate header units
+
+                         Do this last.
+
+                     A header -
+            unit experiment could represent identity as something like :
+
+            (canonical header identity, preprocessing - state digest, compiler compatibility key)
+
+                But this needs evidence from compiler behaviour,
+            not wishful schema design.P1184 and
+                P2898 both show that header units are qualitatively nastier than named modules.
+
+                    A perfectly respectable long -
+                    term answer may be :
+
+            Named modules use the static cxx -
+            modgraph model.Header units require a separate dynamic mapper abstraction
+                .
+
+            Do not let header units eat the clean architecture.
     }
 }
 
@@ -392,6 +453,7 @@ DependencyFacts read_p1689(const JsonValue &root, std::string_view raw_document,
         read_requires(*rule, context, unit, reader);
         facts.translation_units.push_back(std::move(unit));
     }
+
     return facts;
 }
 

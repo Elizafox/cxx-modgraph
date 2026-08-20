@@ -24,7 +24,10 @@ void write_p2977(std::ostream &output, const DependencyFacts &facts)
     using json = nlohmann::json;
     std::map<std::string, ModuleSet> sets;
     for (const auto &set : facts.module_sets)
+    {
         sets.insert_or_assign(set.name, set);
+    }
+
     for (const auto &unit : facts.translation_units)
     {
         const std::string name = unit.module_set.empty() ? "default" : unit.module_set;
@@ -41,25 +44,42 @@ void write_p2977(std::ostream &output, const DependencyFacts &facts)
                            {"translation-units", json::array()}};
         std::vector<const TranslationUnit *> units;
         for (const auto &unit : facts.translation_units)
+        {
             if ((unit.module_set.empty() ? "default" : unit.module_set) == name)
+            {
                 units.push_back(&unit);
+            }
+        }
+
         std::ranges::sort(units, {},
                           [](const auto *unit) { return path_string(unit->source_path); });
         for (const auto *unit : units)
         {
             json provides = json::object();
+
             for (const auto &module : unit->provides)
+            {
                 provides[module.name] = path_string(module.bmi_path);
+            }
+
             json translation = {
                 {"source", path_string(unit->source_path)}, {"arguments", unit->arguments},
                 {"local-arguments", unit->local_arguments}, {"private", unit->is_private},
                 {"provides", std::move(provides)},          {"requires", unit->required_modules}};
+
             if (!unit->object_path.empty())
+            {
                 translation["object"] = path_string(unit->object_path);
+            }
+
             if (!unit->work_directory.empty())
+            {
                 translation["work-directory"] = path_string(unit->work_directory);
+            }
+
             output_set["translation-units"].push_back(std::move(translation));
         }
+
         document["sets"].push_back(std::move(output_set));
     }
     output << document.dump(2) << '\n';
