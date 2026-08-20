@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "cases": [
+    {"name":"simple-chain", "file":"valid-graphs.json", "pointer":"/chain", "expect":"valid"},
+    {"name":"diamond", "file":"valid-graphs.json", "pointer":"/diamond", "expect":"valid"},
+    {"name":"partition-and-implementation", "file":"valid-graphs.json", "pointer":"/partition", "expect":"valid"},
+    {"name":"unusual-legal-name", "file":"valid-graphs.json", "pointer":"/unusual-name", "expect":"valid"},
+    {"name":"duplicate-provider", "file":"invalid-graphs.json", "pointer":"/duplicate-provider", "expect":"duplicate_provider"},
+    {"name":"unresolved-import", "file":"invalid-graphs.json", "pointer":"/unresolved", "expect":"missing_provider"},
+    {"name":"direct-cycle", "file":"invalid-graphs.json", "pointer":"/direct-cycle", "expect":"dependency_cycle"},
+    {"name":"indirect-cycle", "file":"invalid-graphs.json", "pointer":"/indirect-cycle", "expect":"dependency_cycle"},
+    {"name":"generated-and-changed-import", "file":"scan-variants.json", "pointer":"/generated", "expect":"rescan-changes-digest"},
+    {"name":"multiple-roots", "file":"scan-variants.json", "pointer":"/roots", "expect":"distinct-sources"},
+    {"name":"clang-gcc-disagreement", "file":"scan-variants.json", "pointer":"/compiler-disagreement", "expect":"different-facts"},
+    {"name":"native-cross-sysroot", "file":"scan-variants.json", "pointer":"/targets", "expect":"different-command-digests"},
+    {"name":"external-module", "file":"valid-graphs.json", "pointer":"/external", "expect":"valid"},
+    {"name":"extended-p1689", "file":"extended.p1689.json", "expect":"valid-and-preserved"},
+    {"name":"malformed-p1689", "file":"malformed.p1689.json", "expect":"parse-error"}
+  ]
+}

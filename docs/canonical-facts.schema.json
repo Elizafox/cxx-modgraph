@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://cxx-modgraph.dev/schema/dependency-facts-v1.json",
+  "$id": "https://cxx-modgraph.dev/schema/dependency-facts-v2.json",
   "title": "cxx-modgraph dependency facts",
   "type": "object",
   "additionalProperties": false,
@@ -12,7 +12,7 @@
   ],
   "properties": {
     "version": {
-      "const": 1
+      "enum": [1, 2]
     },
     "source-root": {
       "type": "string",
@@ -54,7 +54,9 @@
                 "bmi": {
                   "type": "string",
                   "minLength": 1
-                }
+                },
+                "is-interface": {"type":"boolean"},
+                "lookup-method": {"type":"string"}
               }
             }
           },
@@ -64,7 +66,9 @@
               "type": "string",
               "minLength": 1
             }
-          }
+          },
+          "dependency-reasons": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["module","reason","lookup-method"],"properties":{"module":{"type":"string"},"reason":{"type":"string"},"lookup-method":{"type":"string"},"raw-requirement":{"type":"string"}}}},
+          "provenance": {"type":"object","additionalProperties":false,"properties":{"rule-source":{"type":"string"},"scanner":{"type":"string"},"scanner-version":{"type":"string"},"original-output":{"type":"string"},"source-lookup":{"type":"string"},"source-path-unique":{"type":"boolean"},"raw-rule":{"type":"string"}}}
         }
       }
     },
@@ -88,6 +92,7 @@
           }
         }
       }
-    }
+    },
+    "inputs": {"type":"array","items":{"type":"object","additionalProperties":false,"required":["path","digest"],"properties":{"path":{"type":"string"},"digest":{"type":"string","pattern":"^fnv1a64:[0-9a-f]{16}$"}}}}
   }
 }

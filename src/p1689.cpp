@@ -82,6 +82,16 @@ public:
         return result;
     }
 
+    const bool *boolean(const JsonValue *value, std::string_view context)
+    {
+        if (value == nullptr)
+            return nullptr;
+        const auto *result = std::get_if<bool>(&value->value);
+        if (result == nullptr)
+            error(std::string(context) + " must be a boolean");
+        return result;
+    }
+
     const JsonValue *property(const JsonValue::Object &value, std::string_view name,
                               std::string_view context, bool required = true)
     {
@@ -192,7 +202,14 @@ void read_provides(const JsonValue::Object &rule, const std::string &context,
                           item_context + ".logical-name");
         if (name != nullptr)
         {
-            unit.provides.push_back({*name, bmi_path(*name, options)});
+            ProvidedModule module{*name, bmi_path(*name, options)};
+            if (const JsonValue *interface_value =
+                    reader.property(*provided, "is-interface", item_context, false))
+                if (const bool *is_interface =
+                        reader.boolean(interface_value, item_context + ".is-interface"))
+                    module.is_interface = *is_interface;
+            module.lookup_method = "P1689 logical-name";
+            unit.provides.push_back(std::move(module));
         }
     }
 }
@@ -227,11 +244,13 @@ void read_requires(const JsonValue::Object &rule, const std::string &context, Tr
         if (name != nullptr)
         {
             unit.required_modules.push_back(*name);
+            unit.dependency_reasons.push_back(
+                {*name, "P1689 rule directly requires '" + *name + "'", "P1689 logical-name", {}});
         }
     }
 }
 
-DependencyFacts read_p1689(const JsonValue &root,
+DependencyFacts read_p1689(const JsonValue &root, std::string_view raw_document,
                            const std::map<std::string, std::filesystem::path> &sources,
                            const P1689ImportOptions &options, Reader &reader)
 {
@@ -286,6 +305,13 @@ DependencyFacts read_p1689(const JsonValue &root,
         TranslationUnit unit;
         unit.source_path = source->second;
         unit.object_path = *output;
+        unit.provenance = ScanProvenance{options.rule_source,
+                                         options.scanner,
+                                         options.scanner_version,
+                                         *output,
+                                         "compilation database output match",
+                                         true,
+                                         std::string(raw_document)};
         read_provides(*rule, context, options, unit, reader);
         read_requires(*rule, context, unit, reader);
         facts.translation_units.push_back(std::move(unit));
@@ -309,7 +335,7 @@ P1689ImportResult import_p1689(std::string_view input, std::string_view compilat
         const JsonValue commands = detail::parse_json_value(compilation_database);
         Reader reader;
         const auto sources = read_compilation_database(commands, reader);
-        DependencyFacts facts = read_p1689(p1689, sources, options, reader);
+        DependencyFacts facts = read_p1689(p1689, input, sources, options, reader);
         if (!reader.errors.empty())
         {
             return {.facts = std::nullopt, .errors = std::move(reader.errors)};

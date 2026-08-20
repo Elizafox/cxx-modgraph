@@ -10,6 +10,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <iterator>
 #include <optional>
@@ -23,6 +24,15 @@ namespace
 
 struct Options
 {
+    enum class Query
+    {
+        none,
+        explain_module,
+        why,
+        cycle,
+        providers,
+        critical_path
+    };
     enum class EmitFormat
     {
         json,
@@ -45,7 +55,26 @@ struct Options
     std::vector<cxx_modgraph::ExternalModule> external_modules;
     EmitFormat emit_format = EmitFormat::json;
     InputFormat input_format = InputFormat::canonical;
+    Query query = Query::none;
+    std::string query_module;
+    std::filesystem::path query_source;
+    bool check_fresh = false;
+    std::string scanner;
+    std::string scanner_version;
 };
+
+std::string digest(std::string_view value)
+{
+    std::uint64_t hash = 14695981039346656037ull;
+    for (unsigned char c : value)
+    {
+        hash ^= c;
+        hash *= 1099511628211ull;
+    }
+    std::ostringstream out;
+    out << "fnv1a64:" << std::hex << std::setfill('0') << std::setw(16) << hash;
+    return out.str();
+}
 
 std::optional<int> parse_options(int argc, char **argv, Options &options)
 {
@@ -70,6 +99,10 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     app.add_option("--bmi-extension", options.bmi_extension, "BMI filename suffix")
         ->type_name("X")
         ->default_str(".pcm");
+    app.add_option("--scanner", options.scanner, "Dependency scanner identity")->type_name("NAME");
+    app.add_option("--scanner-version", options.scanner_version, "Dependency scanner version")
+        ->type_name("VERSION");
+    app.add_flag("--check-fresh", options.check_fresh, "Fail if any recorded graph input changed");
     app.add_option_function<std::pair<std::string, std::filesystem::path>>(
            "--external-module", [&options](const auto &mapping)
            { options.external_modules.push_back({mapping.first, mapping.second}); },
@@ -87,6 +120,22 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
         ->check(CLI::IsMember({"json", "make", "ninja"}))
         ->default_str("json");
     app.set_version_flag("--version", "cxx-modgraph 0.1.0");
+
+    auto *explain = app.add_subcommand("explain", "Explain graph facts");
+    auto *explain_module = explain->add_subcommand("module", "Explain a module");
+    explain_module->add_option("name", options.query_module)->required();
+    explain_module->callback([&options] { options.query = Options::Query::explain_module; });
+    auto *why = app.add_subcommand("why", "Explain a direct module requirement");
+    why->add_option("source", options.query_source)->required();
+    why->add_option("module", options.query_module)->required();
+    why->callback([&options] { options.query = Options::Query::why; });
+    auto *cycle = app.add_subcommand("cycle", "Print a concrete cycle witness");
+    cycle->callback([&options] { options.query = Options::Query::cycle; });
+    auto *providers = app.add_subcommand("providers", "List every provider for a module");
+    providers->add_option("module", options.query_module)->required();
+    providers->callback([&options] { options.query = Options::Query::providers; });
+    auto *critical = app.add_subcommand("critical-path", "Print the longest dependency chain");
+    critical->callback([&options] { options.query = Options::Query::critical_path; });
 
     try
     {
@@ -147,6 +196,32 @@ int run(const Options &options)
             facts.external_modules.insert(facts.external_modules.end(),
                                           options.external_modules.begin(),
                                           options.external_modules.end());
+            if (options.check_fresh)
+            {
+                if (facts.inputs.empty())
+                {
+                    std::cerr << "error: graph has no recorded input digests\n";
+                    return 1;
+                }
+                for (const auto &artifact : facts.inputs)
+                {
+                    std::ifstream f(artifact.path, std::ios::binary);
+                    std::ostringstream s;
+                    if (!f)
+                    {
+                        std::cerr << "error: graph input '" << artifact.path.string()
+                                  << "' is missing\n";
+                        return 1;
+                    }
+                    s << f.rdbuf();
+                    if (digest(s.str()) != artifact.digest)
+                    {
+                        std::cerr << "error: graph is stale: '" << artifact.path.string()
+                                  << "' changed\n";
+                        return 1;
+                    }
+                }
+            }
         }
         else
         {
@@ -174,10 +249,14 @@ int run(const Options &options)
         import_options.source_root = options.source_root.value_or(".");
         import_options.bmi_directory = options.bmi_directory;
         import_options.bmi_extension = options.bmi_extension;
+        import_options.scanner = options.scanner;
+        import_options.scanner_version = options.scanner_version;
         facts.source_root = import_options.source_root;
         facts.external_modules = options.external_modules;
+        facts.inputs.push_back({*options.compilation_database, digest(command_contents.str())});
         for (const std::filesystem::path &input_path : options.input_paths)
         {
+            import_options.rule_source = input_path;
             if (input_path == "-" && options.input_paths.size() != 1)
             {
                 std::cerr << "error: stdin cannot be combined with multiple P1689 inputs\n";
@@ -204,6 +283,8 @@ int run(const Options &options)
                 input_contents.str(), command_contents.str(), import_options);
             if (imported.ok())
             {
+                facts.version = cxx_modgraph::current_facts_version;
+                facts.inputs.push_back({input_path, digest(input_contents.str())});
                 auto &units = imported.facts->translation_units;
                 facts.translation_units.insert(facts.translation_units.end(),
                                                std::make_move_iterator(units.begin()),
@@ -235,6 +316,95 @@ int run(const Options &options)
     }
 
     const cxx_modgraph::AnalysisResult analysis = cxx_modgraph::analyze(facts);
+    if (options.query != Options::Query::none)
+    {
+        auto print_path = [](const std::vector<cxx_modgraph::NodeId> &path)
+        {
+            for (std::size_t i = 0; i < path.size(); ++i)
+                std::cout << (i ? " -> " : "") << path[i];
+            std::cout << '\n';
+        };
+        if (options.query == Options::Query::cycle)
+        {
+            auto path = analysis.graph.cycle_witness();
+            if (path.empty())
+            {
+                std::cout << "no cycle\n";
+                return 0;
+            }
+            print_path(path);
+            return 1;
+        }
+        if (options.query == Options::Query::critical_path)
+        {
+            auto path = analysis.graph.critical_path();
+            if (path.empty() && analysis.graph.topological_sort().has_cycle())
+            {
+                std::cerr << "error: critical path is undefined for a cyclic graph\n";
+                return 1;
+            }
+            print_path(path);
+            return 0;
+        }
+        bool found = false;
+        for (const auto &u : facts.translation_units)
+        {
+            bool provides = false;
+            for (const auto &p : u.provides)
+                if (p.name == options.query_module)
+                    provides = true;
+            if (options.query == Options::Query::providers && provides)
+            {
+                std::cout << options.query_module << " provided by " << u.source_path.string();
+                if (u.provenance)
+                    std::cout << " (output " << u.provenance->original_output.string()
+                              << ", scanner " << u.provenance->scanner << ' '
+                              << u.provenance->scanner_version << ')';
+                std::cout << '\n';
+                found = true;
+            }
+            if (options.query == Options::Query::explain_module && provides)
+            {
+                std::cout << "module " << options.query_module
+                          << "\nprovider: " << u.source_path.string() << "\nbmi: ";
+                for (const auto &p : u.provides)
+                    if (p.name == options.query_module)
+                        std::cout << p.bmi_path.string();
+                std::cout << '\n';
+                found = true;
+            }
+            if (options.query == Options::Query::why &&
+                u.source_path.lexically_normal() == options.query_source.lexically_normal())
+            {
+                for (const auto &r : u.dependency_reasons)
+                    if (r.module == options.query_module)
+                    {
+                        std::cout << u.source_path.string() << " requires " << r.module << ": "
+                                  << r.reason << " (lookup: " << r.lookup_method << ")\n";
+                        found = true;
+                    }
+                if (!found && std::ranges::find(u.required_modules, options.query_module) !=
+                                  u.required_modules.end())
+                {
+                    std::cout << u.source_path.string() << " directly requires "
+                              << options.query_module << " (canonical facts)\n";
+                    found = true;
+                }
+            }
+        }
+        for (const auto &e : facts.external_modules)
+            if (options.query == Options::Query::providers && e.name == options.query_module)
+            {
+                std::cout << e.name << " provided externally by " << e.bmi_path.string() << '\n';
+                found = true;
+            }
+        if (!found)
+        {
+            std::cerr << "error: no matching graph fact\n";
+            return 1;
+        }
+        return 0;
+    }
     if (!analysis.ok())
     {
         for (const cxx_modgraph::Diagnostic &diagnostic : analysis.diagnostics)

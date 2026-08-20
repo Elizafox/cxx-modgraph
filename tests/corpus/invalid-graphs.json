@@ -1,0 +1,6 @@
+{
+  "duplicate-provider":{"module":"dup","sources":["one.cppm","two.cppm"]},
+  "unresolved":{"source":"app.cpp","requires":["absent"]},
+  "direct-cycle":{"edges":[["a","b"],["b","a"]]},
+  "indirect-cycle":{"edges":[["a","b"],["b","c"],["c","a"]]}
+}

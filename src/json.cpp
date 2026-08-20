@@ -93,6 +93,13 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             write_escaped(output, module.name);
             output << ", \"bmi\": ";
             write_escaped(output, normalized(module.bmi_path));
+            if (module.is_interface)
+                output << ", \"is-interface\": " << (*module.is_interface ? "true" : "false");
+            if (!module.lookup_method.empty())
+            {
+                output << ", \"lookup-method\": ";
+                write_escaped(output, module.lookup_method);
+            }
             output << '}';
         }
 
@@ -107,7 +114,50 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
             write_escaped(output, unit.required_modules[required_index]);
         }
 
-        output << "]\n    }";
+        output << "]";
+        if (!unit.dependency_reasons.empty())
+        {
+            output << ",\n      \"dependency-reasons\": [";
+            for (std::size_t i = 0; i < unit.dependency_reasons.size(); ++i)
+            {
+                const auto &r = unit.dependency_reasons[i];
+                output << (i ? ",\n" : "\n") << "        {\"module\": ";
+                write_escaped(output, r.module);
+                output << ", \"reason\": ";
+                write_escaped(output, r.reason);
+                output << ", \"lookup-method\": ";
+                write_escaped(output, r.lookup_method);
+                if (!r.raw_requirement_json.empty())
+                {
+                    output << ", \"raw-requirement\": ";
+                    write_escaped(output, r.raw_requirement_json);
+                }
+                output << '}';
+            }
+            output << "\n      ]";
+        }
+        if (unit.provenance)
+        {
+            const auto &p = *unit.provenance;
+            output << ",\n      \"provenance\": {\"rule-source\": ";
+            write_escaped(output, normalized(p.rule_source));
+            output << ", \"scanner\": ";
+            write_escaped(output, p.scanner);
+            output << ", \"scanner-version\": ";
+            write_escaped(output, p.scanner_version);
+            output << ", \"original-output\": ";
+            write_escaped(output, normalized(p.original_output));
+            output << ", \"source-lookup\": ";
+            write_escaped(output, p.source_lookup);
+            output << ", \"source-path-unique\": " << (p.source_path_unique ? "true" : "false");
+            if (!p.raw_rule_json.empty())
+            {
+                output << ", \"raw-rule\": ";
+                write_escaped(output, p.raw_rule_json);
+            }
+            output << '}';
+        }
+        output << "\n    }";
     }
 
     output << (units.empty() ? "]" : "\n  ]") << ",\n  \"external-modules\": [";
@@ -121,7 +171,16 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         output << '}';
     }
 
-    output << (external.empty() ? "]" : "\n  ]") << "\n}\n";
+    output << (external.empty() ? "]" : "\n  ]") << ",\n  \"inputs\": [";
+    for (std::size_t i = 0; i < facts.inputs.size(); ++i)
+    {
+        output << (i ? ",\n" : "\n") << "    {\"path\": ";
+        write_escaped(output, normalized(facts.inputs[i].path));
+        output << ", \"digest\": ";
+        write_escaped(output, facts.inputs[i].digest);
+        output << '}';
+    }
+    output << (facts.inputs.empty() ? "]" : "\n  ]") << "\n}\n";
 }
 
 std::string to_json(const DependencyFacts &facts)

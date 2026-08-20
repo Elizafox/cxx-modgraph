@@ -31,7 +31,7 @@ bool AnalysisResult::ok() const noexcept
 AnalysisResult analyze(const DependencyFacts &facts)
 {
     AnalysisResult result;
-    if (facts.version != current_facts_version)
+    if (facts.version != 1 && facts.version != current_facts_version)
     {
         add_diagnostic(result, DiagnosticCode::unsupported_version,
                        "unsupported dependency facts version " + std::to_string(facts.version));
@@ -59,7 +59,8 @@ AnalysisResult analyze(const DependencyFacts &facts)
         if (!inserted)
         {
             add_diagnostic(result, DiagnosticCode::duplicate_provider,
-                           "module '" + module.name + "' has more than one provider");
+                           "module '" + module.name + "' has duplicate providers (external and '" +
+                               existing->second + "')");
         }
     }
 
@@ -99,7 +100,8 @@ AnalysisResult analyze(const DependencyFacts &facts)
             if (!inserted)
             {
                 add_diagnostic(result, DiagnosticCode::duplicate_provider,
-                               "module '" + module.name + "' has more than one provider");
+                               "module '" + module.name + "' has duplicate providers: '" +
+                                   existing->second + "' and '" + source + "'");
             }
         }
     }
@@ -137,9 +139,12 @@ AnalysisResult analyze(const DependencyFacts &facts)
     const SortResult sorted = result.graph.topological_sort();
     if (sorted.has_cycle())
     {
+        const std::vector<NodeId> witness = result.graph.cycle_witness();
+        std::string chain;
+        for (const NodeId &node : witness)
+            chain += (chain.empty() ? "" : " -> ") + node;
         add_diagnostic(result, DiagnosticCode::dependency_cycle,
-                       "module dependencies contain a cycle; " +
-                           std::to_string(sorted.remaining_nodes.size()) + " node(s) remain");
+                       "module dependencies contain a cycle: " + chain);
     }
 
     return result;

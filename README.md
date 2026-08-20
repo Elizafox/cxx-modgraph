@@ -151,11 +151,47 @@ transitive import closure because Clang may need to load a partition's
 dependencies while reading its BMI; emitted Make prerequisites intentionally
 preserve only the direct P1689 edges.
 
+## Explaining a graph
+
+Graph queries remain available even when validation finds duplicate providers,
+unresolved imports, or cycles:
+
+```sh
+cxx-modgraph --input dependencies.json explain module foo.bar
+cxx-modgraph --input dependencies.json why app.cpp foo.bar
+cxx-modgraph --input dependencies.json providers foo.bar
+cxx-modgraph --input dependencies.json cycle
+cxx-modgraph --input dependencies.json critical-path
+```
+
+Cycles print a deterministic concrete witness (`foo.cppm -> bar.cppm ->
+foo.cppm`). Provider output names both source paths and, when recorded, scanner
+and original-output configuration. The critical path is the longest chain by
+translation-unit count; it is intentionally undefined for cyclic graphs.
+
+## Graph freshness
+
+P1689 imports record deterministic digests of every scan document and the paired
+compilation database. Preserve those `inputs` when storing canonical facts, then
+guard later use with `--check-fresh`:
+
+```sh
+cxx-modgraph --input build/dependencies.json --check-fresh --emit make
+```
+
+The command fails if an input is missing or changed. Scanner provenance can be
+attached during import with `--scanner` and `--scanner-version`. Build adapters
+should make their emitted graph depend on the P1689 files and compilation
+database as the primary regeneration mechanism; the digest check is the safety
+net for direct/manual invocation.
+
 ## Canonical dependency facts
 
-The version 1 format records a source root, translation-unit source and object
+The version 2 format records a source root, translation-unit source and object
 paths, provided modules and their BMI paths, required module names, and external
-prebuilt modules. Paths are normalized and serialized with `/` separators. Arrays
+prebuilt modules. It additionally records P1689/scanner provenance, interface
+status, lookup methods, exact edge reasons, losslessly retained scan JSON, and
+input digests. Version 1 inputs remain accepted. Paths are normalized and serialized with `/` separators. Arrays
 are sorted by stable keys when emitted so equivalent facts produce identical JSON.
 
 See [`docs/canonical-facts.schema.json`](docs/canonical-facts.schema.json) for the

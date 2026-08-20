@@ -50,6 +50,18 @@ void reports_nodes_remaining_in_a_cycle()
     require(result.has_cycle(), "cycle was not reported");
     require(result.remaining_nodes == std::vector<cxx_modgraph::NodeId>{"a", "b", "consumer"},
             "nodes remaining after cycle detection were incorrect");
+    require(graph.cycle_witness() == std::vector<cxx_modgraph::NodeId>({"a", "b", "a"}),
+            "concrete cycle witness was incorrect");
+}
+
+void finds_deterministic_critical_path()
+{
+    cxx_modgraph::DependencyGraph graph;
+    graph.add_dependency("b", "a");
+    graph.add_dependency("c", "b");
+    graph.add_dependency("d", "a");
+    require(graph.critical_path() == std::vector<cxx_modgraph::NodeId>({"a", "b", "c"}),
+            "critical path was incorrect");
 }
 
 } // namespace
@@ -58,4 +70,5 @@ int main()
 {
     sorts_dependencies_into_deterministic_levels();
     reports_nodes_remaining_in_a_cycle();
+    finds_deterministic_critical_path();
 }

@@ -36,6 +36,9 @@ public:
     [[nodiscard]] bool contains(const NodeId &node) const;
     [[nodiscard]] std::size_t size() const noexcept;
     [[nodiscard]] SortResult topological_sort() const;
+    [[nodiscard]] std::vector<NodeId> cycle_witness() const;
+    [[nodiscard]] std::vector<NodeId> critical_path() const;
+    [[nodiscard]] const std::map<NodeId, std::set<NodeId>> &dependents() const noexcept;
 
 private:
     // Edges point from a prerequisite to the nodes that depend on it.

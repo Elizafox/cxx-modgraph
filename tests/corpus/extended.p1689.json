@@ -1,0 +1,1 @@
+{"version":1,"revision":99,"vendor-extension":{"kept":true},"rules":[{"primary-output":"m.o","provides":[{"logical-name":"m","is-interface":true,"vendor-role":"generated"}],"requires":[]}]}

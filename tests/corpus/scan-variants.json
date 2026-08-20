@@ -1,0 +1,6 @@
+{
+  "generated":{"source":"build/generated.cppm","before":[],"after":["config"]},
+  "roots":[{"root":"src","source":"module.cppm"},{"root":"vendor","source":"module.cppm"}],
+  "compiler-disagreement":{"clang":{"requires":["header.unit"]},"gcc":{"requires":[]}},
+  "targets":{"native":{"command":"c++ -c m.cppm"},"cross":{"command":"aarch64-linux-gnu-c++ --sysroot=/sdk -c m.cppm"}}
+}

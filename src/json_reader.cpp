@@ -122,8 +122,9 @@ public:
             return {};
         }
 
-        reject_unknown(*root, {"version", "source-root", "translation-units", "external-modules"},
-                       "root");
+        reject_unknown(
+            *root, {"version", "source-root", "translation-units", "external-modules", "inputs"},
+            "root");
 
         DependencyFacts facts;
         if (const std::int64_t *version = integer(property(*root, "version", "root"), "version"))
@@ -147,6 +148,7 @@ public:
 
         decode_units(property(*root, "translation-units", "root"), facts);
         decode_external(property(*root, "external-modules", "root"), facts);
+        decode_inputs(property(*root, "inputs", "root", false), facts);
 
         return facts;
     }
@@ -163,7 +165,7 @@ private:
     }
 
     const JsonValue *property(const JsonValue::Object &value, std::string_view name,
-                              std::string_view context)
+                              std::string_view context, bool required = true)
     {
         const auto found = value.find(std::string(name));
         if (found != value.end())
@@ -171,7 +173,9 @@ private:
             return &found->second;
         }
 
-        error(std::string(context) + " is missing required property '" + std::string(name) + "'");
+        if (required)
+            error(std::string(context) + " is missing required property '" + std::string(name) +
+                  "'");
         return nullptr;
     }
 
@@ -239,6 +243,16 @@ private:
         return result;
     }
 
+    const bool *boolean(const JsonValue *value, std::string_view context)
+    {
+        if (value == nullptr)
+            return nullptr;
+        const auto *result = std::get_if<bool>(&value->value);
+        if (result == nullptr)
+            error(std::string(context) + " must be a boolean");
+        return result;
+    }
+
     void reject_unknown(const JsonValue::Object &value,
                         std::initializer_list<std::string_view> accepted, std::string_view context)
     {
@@ -269,7 +283,10 @@ private:
                 continue;
             }
 
-            reject_unknown(*item, {"source", "object", "provides", "requires"}, context);
+            reject_unknown(
+                *item,
+                {"source", "object", "provides", "requires", "dependency-reasons", "provenance"},
+                context);
             TranslationUnit unit;
             if (const std::string *source =
                     string(property(*item, "source", context), context + ".source"))
@@ -285,6 +302,8 @@ private:
 
             decode_provides(property(*item, "provides", context), context, unit);
             decode_requires(property(*item, "requires", context), context, unit);
+            decode_reasons(property(*item, "dependency-reasons", context, false), context, unit);
+            decode_provenance(property(*item, "provenance", context, false), context, unit);
             facts.translation_units.push_back(std::move(unit));
         }
     }
@@ -306,7 +325,7 @@ private:
                 continue;
             }
 
-            reject_unknown(*item, {"name", "bmi"}, item_context);
+            reject_unknown(*item, {"name", "bmi", "is-interface", "lookup-method"}, item_context);
             ProvidedModule module;
             if (const std::string *name =
                     string(property(*item, "name", item_context), item_context + ".name"))
@@ -319,8 +338,98 @@ private:
             {
                 module.bmi_path = *bmi;
             }
+            if (const bool *is_interface =
+                    boolean(property(*item, "is-interface", item_context, false),
+                            item_context + ".is-interface"))
+                module.is_interface = *is_interface;
+            if (const std::string *lookup =
+                    string(property(*item, "lookup-method", item_context, false),
+                           item_context + ".lookup-method"))
+                module.lookup_method = *lookup;
 
             unit.provides.push_back(std::move(module));
+        }
+    }
+
+    void decode_reasons(const JsonValue *value, const std::string &context, TranslationUnit &unit)
+    {
+        if (value == nullptr)
+            return;
+        const auto *items = array(value, context + ".dependency-reasons");
+        if (!items)
+            return;
+        for (std::size_t i = 0; i < items->size(); ++i)
+        {
+            const std::string c = context + ".dependency-reasons[" + std::to_string(i) + "]";
+            const auto *item = object(&(*items)[i], c);
+            if (!item)
+                continue;
+            reject_unknown(*item, {"module", "reason", "lookup-method", "raw-requirement"}, c);
+            DependencyReason reason;
+            if (auto p = string(property(*item, "module", c), c + ".module"))
+                reason.module = *p;
+            if (auto p = string(property(*item, "reason", c), c + ".reason"))
+                reason.reason = *p;
+            if (auto p = string(property(*item, "lookup-method", c), c + ".lookup-method"))
+                reason.lookup_method = *p;
+            if (auto p =
+                    string(property(*item, "raw-requirement", c, false), c + ".raw-requirement"))
+                reason.raw_requirement_json = *p;
+            unit.dependency_reasons.push_back(std::move(reason));
+        }
+    }
+
+    void decode_provenance(const JsonValue *value, const std::string &context,
+                           TranslationUnit &unit)
+    {
+        if (!value)
+            return;
+        const auto *item = object(value, context + ".provenance");
+        if (!item)
+            return;
+        reject_unknown(*item,
+                       {"rule-source", "scanner", "scanner-version", "original-output",
+                        "source-lookup", "source-path-unique", "raw-rule"},
+                       context + ".provenance");
+        ScanProvenance p;
+        if (auto x = string(property(*item, "rule-source", context, false), "rule-source"))
+            p.rule_source = *x;
+        if (auto x = string(property(*item, "scanner", context, false), "scanner"))
+            p.scanner = *x;
+        if (auto x = string(property(*item, "scanner-version", context, false), "scanner-version"))
+            p.scanner_version = *x;
+        if (auto x = string(property(*item, "original-output", context, false), "original-output"))
+            p.original_output = *x;
+        if (auto x = string(property(*item, "source-lookup", context, false), "source-lookup"))
+            p.source_lookup = *x;
+        if (auto x = boolean(property(*item, "source-path-unique", context, false),
+                             "source-path-unique"))
+            p.source_path_unique = *x;
+        if (auto x = string(property(*item, "raw-rule", context, false), "raw-rule"))
+            p.raw_rule_json = *x;
+        unit.provenance = std::move(p);
+    }
+
+    void decode_inputs(const JsonValue *value, DependencyFacts &facts)
+    {
+        if (!value)
+            return;
+        const auto *items = array(value, "inputs");
+        if (!items)
+            return;
+        for (std::size_t i = 0; i < items->size(); ++i)
+        {
+            const std::string c = "inputs[" + std::to_string(i) + "]";
+            const auto *item = object(&(*items)[i], c);
+            if (!item)
+                continue;
+            reject_unknown(*item, {"path", "digest"}, c);
+            InputArtifact a;
+            if (auto x = string(property(*item, "path", c), c + ".path"))
+                a.path = *x;
+            if (auto x = string(property(*item, "digest", c), c + ".digest"))
+                a.digest = *x;
+            facts.inputs.push_back(std::move(a));
         }
     }
 

@@ -1,0 +1,7 @@
+{
+  "chain":{"modules":{"a":[],"b":["a"],"c":["b"]}},
+  "diamond":{"modules":{"base":[],"left":["base"],"right":["base"],"top":["left","right"]}},
+  "partition":{"modules":{"widget:detail":[],"widget":["widget:detail"]},"implementation-unit":{"provides":[],"requires":["widget"]}},
+  "unusual-name":{"modules":{"company.product_v2:detail.part":[]}},
+  "external":{"external-modules":[{"name":"std","bmi":"toolchain/std.pcm"}],"consumer":["std"]}
+}

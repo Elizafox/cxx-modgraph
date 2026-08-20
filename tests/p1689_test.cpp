@@ -56,6 +56,14 @@ void imports_p1689_with_compilation_database_sources()
             "source was not obtained from the compilation database");
     require(result.facts->translation_units[0].provides[0].bmi_path == "out/bmi/hello@3Adetail.pcm",
             "Clang partition BMI name was not derived correctly");
+    require(result.facts->translation_units[0].provides[0].is_interface == true,
+            "P1689 interface status was not retained");
+    require(result.facts->translation_units[0].provenance.has_value() &&
+                result.facts->translation_units[0].provenance->raw_rule_json == p1689,
+            "lossless P1689 source was not retained");
+    require(result.facts->translation_units[0].dependency_reasons[0].reason.find("directly") !=
+                std::string::npos,
+            "dependency edge reason was not retained");
     require(cxx_modgraph::analyze(*result.facts).ok(), "imported facts did not form a valid graph");
 }
 
