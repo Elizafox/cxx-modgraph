@@ -122,9 +122,10 @@ public:
             return {};
         }
 
-        reject_unknown(
-            *root, {"version", "source-root", "translation-units", "external-modules", "inputs"},
-            "root");
+        reject_unknown(*root,
+                       {"version", "source-root", "translation-units", "external-modules", "inputs",
+                        "module-sets"},
+                       "root");
 
         DependencyFacts facts;
         if (const std::int64_t *version = integer(property(*root, "version", "root"), "version"))
@@ -149,6 +150,7 @@ public:
         decode_units(property(*root, "translation-units", "root"), facts);
         decode_external(property(*root, "external-modules", "root"), facts);
         decode_inputs(property(*root, "inputs", "root", false), facts);
+        decode_sets(property(*root, "module-sets", "root", false), facts);
 
         return facts;
     }
@@ -283,10 +285,11 @@ private:
                 continue;
             }
 
-            reject_unknown(
-                *item,
-                {"source", "object", "provides", "requires", "dependency-reasons", "provenance"},
-                context);
+            reject_unknown(*item,
+                           {"source", "object", "provides", "requires", "dependency-reasons",
+                            "provenance", "arguments", "local-arguments", "work-directory",
+                            "module-set", "private"},
+                           context);
             TranslationUnit unit;
             if (const std::string *source =
                     string(property(*item, "source", context), context + ".source"))
@@ -304,7 +307,58 @@ private:
             decode_requires(property(*item, "requires", context), context, unit);
             decode_reasons(property(*item, "dependency-reasons", context, false), context, unit);
             decode_provenance(property(*item, "provenance", context, false), context, unit);
+            decode_strings(property(*item, "arguments", context, false), context + ".arguments",
+                           unit.arguments);
+            decode_strings(property(*item, "local-arguments", context, false),
+                           context + ".local-arguments", unit.local_arguments);
+            if (auto x = string(property(*item, "work-directory", context, false),
+                                context + ".work-directory"))
+                unit.work_directory = *x;
+            if (auto x =
+                    string(property(*item, "module-set", context, false), context + ".module-set"))
+                unit.module_set = *x;
+            if (auto x = boolean(property(*item, "private", context, false), context + ".private"))
+                unit.is_private = *x;
             facts.translation_units.push_back(std::move(unit));
+        }
+    }
+
+    void decode_strings(const JsonValue *value, const std::string &context,
+                        std::vector<std::string> &result)
+    {
+        if (!value)
+            return;
+        if (const auto *items = array(value, context))
+            for (std::size_t i = 0; i < items->size(); ++i)
+                if (auto x = string(&(*items)[i], context + "[" + std::to_string(i) + "]"))
+                    result.push_back(*x);
+    }
+
+    void decode_sets(const JsonValue *value, DependencyFacts &facts)
+    {
+        if (!value)
+            return;
+        const auto *items = array(value, "module-sets");
+        if (!items)
+            return;
+        for (std::size_t i = 0; i < items->size(); ++i)
+        {
+            const std::string context = "module-sets[" + std::to_string(i) + "]";
+            const auto *item = object(&(*items)[i], context);
+            if (!item)
+                continue;
+            reject_unknown(*item, {"name", "family-name", "baseline-arguments", "visible-sets"},
+                           context);
+            ModuleSet set;
+            if (auto x = string(property(*item, "name", context), context + ".name"))
+                set.name = *x;
+            if (auto x = string(property(*item, "family-name", context), context + ".family-name"))
+                set.family_name = *x;
+            decode_strings(property(*item, "baseline-arguments", context),
+                           context + ".baseline-arguments", set.baseline_arguments);
+            decode_strings(property(*item, "visible-sets", context, false),
+                           context + ".visible-sets", set.visible_sets);
+            facts.module_sets.push_back(std::move(set));
         }
     }
 

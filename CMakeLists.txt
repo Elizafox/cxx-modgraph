@@ -50,7 +50,9 @@ add_library(cxx-modgraph-lib
     src/json_reader.cpp
     src/make.cpp
     src/ninja.cpp
+    src/p2977.cpp
     src/p1689.cpp
+    src/package_metadata.cpp
 )
 
 add_library(cxx-modgraph::lib ALIAS cxx-modgraph-lib)

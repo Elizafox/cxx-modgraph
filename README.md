@@ -11,6 +11,7 @@ This project primarily focusses on:
 - Explicit, reproducible source-path resolution.
 - Compiler-neutral dependency facts.
 - Make, Ninja, and JSON output formats.
+- P2977R1 standalone build databases for independent tooling.
 - Making the process of using C++ modules much more frictionless.
 
 ## Building
@@ -96,6 +97,10 @@ for non-provider units. The Clang Make adapter automates this entire pipeline fr
 `CXX_MODGRAPH_SOURCES`. It can also discover local interface candidates from
 explicit directories:
 
+Compilation arguments and working directories are retained during the join. A
+complete database for language servers, analysers, indexers, and IDEs can be
+emitted with `--emit p2977`.
+
 ```make
 CXX_MODGRAPH_SOURCES := src/main.cpp
 CXX_MODGRAPH_MODULE_PATHS := modules vendor/modules
@@ -151,6 +156,28 @@ transitive import closure because Clang may need to load a partition's
 dependencies while reading its BMI; emitted Make prerequisites intentionally
 preserve only the direct P1689 edges.
 
+## Installed module sources
+
+Package discovery remains outside the graph core. Package managers, `pkgconf`,
+or project configuration locate manifests and pass them using repeatable
+`--package-metadata` options. Relative paths are resolved against the manifest;
+installed and in-tree providers are then validated as one graph. Version 1
+metadata names a `package` and contains `modules` with `logical-name`, `source`,
+`arguments`, optional `requires`, and an optional `compatible-bmi`. Package
+`dependencies`, `baseline-arguments`, local arguments, working directories,
+module-set membership, and private visibility are also retained.
+
+The compatible BMI is only an optimization: interface source and recipe remain
+authoritative because BMIs are compiler- and configuration-specific.
+
+## MSVC
+
+The Make and Ninja adapter directories include `msvc.mk` and `msvc.ninja`.
+They consume `/scanDependencies` P1689R5 output, generate `.ifc` paths and
+`/reference name=path` mappings, and preserve the interface/object multi-output
+relationship. The adapters add `/TP`, which MSVC requires for portable module
+extensions such as `.cppm`.
+
 ## Explaining a graph
 
 Graph queries remain available even when validation finds duplicate providers,
@@ -187,11 +214,13 @@ net for direct/manual invocation.
 
 ## Canonical dependency facts
 
-The version 2 format records a source root, translation-unit source and object
+The version 3 format records a source root, translation-unit source and object
 paths, provided modules and their BMI paths, required module names, and external
 prebuilt modules. It additionally records P1689/scanner provenance, interface
 status, lookup methods, exact edge reasons, losslessly retained scan JSON, and
-input digests. Version 1 inputs remain accepted. Paths are normalized and serialized with `/` separators. Arrays
+input digests. Version 3 adds compile and local arguments, working directories,
+module sets, baseline arguments, and visibility. Version 1 and 2 inputs remain
+accepted. Paths are normalized and serialized with `/` separators. Arrays
 are sorted by stable keys when emitted so equivalent facts produce identical JSON.
 
 See [`docs/canonical-facts.schema.json`](docs/canonical-facts.schema.json) for the

@@ -5,6 +5,8 @@
 #include "cxx_modgraph/make.hpp"
 #include "cxx_modgraph/ninja.hpp"
 #include "cxx_modgraph/p1689.hpp"
+#include "cxx_modgraph/p2977.hpp"
+#include "cxx_modgraph/package_metadata.hpp"
 
 #include <CLI/CLI.hpp>
 
@@ -37,7 +39,8 @@ struct Options
     {
         json,
         make,
-        ninja
+        ninja,
+        p2977
     };
 
     enum class InputFormat
@@ -53,6 +56,7 @@ struct Options
     std::filesystem::path bmi_directory = "build/bmi";
     std::string bmi_extension = ".pcm";
     std::vector<cxx_modgraph::ExternalModule> external_modules;
+    std::vector<std::filesystem::path> package_metadata;
     EmitFormat emit_format = EmitFormat::json;
     InputFormat input_format = InputFormat::canonical;
     Query query = Query::none;
@@ -110,6 +114,9 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
         ->type_name("NAME=PATH")
         ->delimiter('=')
         ->trigger_on_parse();
+    app.add_option("--package-metadata", options.package_metadata,
+                   "Merge installed module-source metadata; repeat for dependencies")
+        ->type_name("FILE");
     app.add_option("-o,--output", options.output_path, "Write output instead of stdout")
         ->type_name("FILE");
     app.add_option("--source-root", options.source_root,
@@ -117,7 +124,7 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
         ->type_name("DIR");
     app.add_option("--emit", emit_format, "Output format")
         ->type_name("FORMAT")
-        ->check(CLI::IsMember({"json", "make", "ninja"}))
+        ->check(CLI::IsMember({"json", "make", "ninja", "p2977"}))
         ->default_str("json");
     app.set_version_flag("--version", "cxx-modgraph 0.1.0");
 
@@ -155,6 +162,10 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     else if (emit_format == "ninja")
     {
         options.emit_format = Options::EmitFormat::ninja;
+    }
+    else if (emit_format == "p2977")
+    {
+        options.emit_format = Options::EmitFormat::p2977;
     }
 
     return std::nullopt;
@@ -310,6 +321,34 @@ int run(const Options &options)
         return 1;
     }
 
+    for (const auto &metadata_path : options.package_metadata)
+    {
+        std::ifstream metadata(metadata_path);
+        if (!metadata)
+        {
+            std::cerr << "error: cannot open package metadata '" << metadata_path.string() << "'\n";
+            return 1;
+        }
+        std::ostringstream contents;
+        contents << metadata.rdbuf();
+        auto imported = cxx_modgraph::import_package_metadata(contents.str(), metadata_path);
+        if (!imported.ok())
+        {
+            for (const auto &error : imported.errors)
+                std::cerr << "error:" << error.line << ':' << error.column << ": " << error.message
+                          << '\n';
+            return 1;
+        }
+        auto &package = *imported.facts;
+        facts.translation_units.insert(facts.translation_units.end(),
+                                       std::make_move_iterator(package.translation_units.begin()),
+                                       std::make_move_iterator(package.translation_units.end()));
+        facts.module_sets.insert(facts.module_sets.end(),
+                                 std::make_move_iterator(package.module_sets.begin()),
+                                 std::make_move_iterator(package.module_sets.end()));
+        facts.inputs.push_back({metadata_path, digest(contents.str())});
+    }
+
     if (options.source_root && options.input_format == Options::InputFormat::canonical)
     {
         facts.source_root = *options.source_root;
@@ -437,9 +476,13 @@ int run(const Options &options)
     {
         cxx_modgraph::write_make(*output, facts);
     }
-    else
+    else if (options.emit_format == Options::EmitFormat::ninja)
     {
         cxx_modgraph::write_ninja(*output, facts);
+    }
+    else
+    {
+        cxx_modgraph::write_p2977(*output, facts);
     }
 
     return *output ? 0 : 1;

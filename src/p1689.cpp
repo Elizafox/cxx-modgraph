@@ -118,10 +118,65 @@ public:
     std::vector<JsonError> errors;
 };
 
-std::map<std::string, std::filesystem::path> read_compilation_database(const JsonValue &root,
-                                                                       Reader &reader)
+struct CompileCommand
 {
-    std::map<std::string, std::filesystem::path> result;
+    std::filesystem::path source;
+    std::filesystem::path directory;
+    std::vector<std::string> arguments;
+};
+
+std::vector<std::string> split_command(std::string_view command)
+{
+    std::vector<std::string> result;
+    std::string current;
+    char quote = 0;
+    bool escaped = false;
+    for (char c : command)
+    {
+        if (escaped)
+        {
+            current.push_back(c);
+            escaped = false;
+            continue;
+        }
+        if (c == '\\' && quote != '\'')
+        {
+            escaped = true;
+            continue;
+        }
+        if (quote != 0)
+        {
+            if (c == quote)
+                quote = 0;
+            else
+                current.push_back(c);
+            continue;
+        }
+        if (c == '\'' || c == '"')
+        {
+            quote = c;
+            continue;
+        }
+        if (c == ' ' || c == '\t')
+        {
+            if (!current.empty())
+            {
+                result.push_back(std::move(current));
+                current.clear();
+            }
+        }
+        else
+            current.push_back(c);
+    }
+    if (!current.empty())
+        result.push_back(std::move(current));
+    return result;
+}
+
+std::map<std::string, CompileCommand> read_compilation_database(const JsonValue &root,
+                                                                Reader &reader)
+{
+    std::map<std::string, CompileCommand> result;
     const JsonValue::Array *entries = reader.array(&root, "compilation database");
     if (entries == nullptr)
     {
@@ -140,7 +195,25 @@ std::map<std::string, std::filesystem::path> read_compilation_database(const Jso
             reader.string(reader.property(*entry, "file", context), context + ".file");
         const std::string *output =
             reader.string(reader.property(*entry, "output", context), context + ".output");
-        if (file != nullptr && output != nullptr && !result.emplace(*output, *file).second)
+        CompileCommand command;
+        if (file != nullptr)
+            command.source = *file;
+        if (const std::string *directory = reader.string(
+                reader.property(*entry, "directory", context, false), context + ".directory"))
+            command.directory = *directory;
+        if (const JsonValue *arguments_value = reader.property(*entry, "arguments", context, false))
+        {
+            if (const auto *arguments = reader.array(arguments_value, context + ".arguments"))
+                for (std::size_t j = 0; j < arguments->size(); ++j)
+                    if (const auto *argument =
+                            reader.string(&(*arguments)[j], context + ".arguments"))
+                        command.arguments.push_back(*argument);
+        }
+        else if (const std::string *text = reader.string(
+                     reader.property(*entry, "command", context, false), context + ".command"))
+            command.arguments = split_command(*text);
+        if (file != nullptr && output != nullptr &&
+            !result.emplace(*output, std::move(command)).second)
         {
             reader.error("compilation database output '" + *output + "' occurs more than once");
         }
@@ -251,7 +324,7 @@ void read_requires(const JsonValue::Object &rule, const std::string &context, Tr
 }
 
 DependencyFacts read_p1689(const JsonValue &root, std::string_view raw_document,
-                           const std::map<std::string, std::filesystem::path> &sources,
+                           const std::map<std::string, CompileCommand> &sources,
                            const P1689ImportOptions &options, Reader &reader)
 {
     DependencyFacts facts;
@@ -303,8 +376,10 @@ DependencyFacts read_p1689(const JsonValue &root, std::string_view raw_document,
         }
 
         TranslationUnit unit;
-        unit.source_path = source->second;
+        unit.source_path = source->second.source;
         unit.object_path = *output;
+        unit.arguments = source->second.arguments;
+        unit.work_directory = source->second.directory;
         unit.provenance = ScanProvenance{options.rule_source,
                                          options.scanner,
                                          options.scanner_version,

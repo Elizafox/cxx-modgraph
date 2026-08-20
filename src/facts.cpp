@@ -31,7 +31,7 @@ bool AnalysisResult::ok() const noexcept
 AnalysisResult analyze(const DependencyFacts &facts)
 {
     AnalysisResult result;
-    if (facts.version != 1 && facts.version != current_facts_version)
+    if (facts.version != 1 && facts.version != 2 && facts.version != current_facts_version)
     {
         add_diagnostic(result, DiagnosticCode::unsupported_version,
                        "unsupported dependency facts version " + std::to_string(facts.version));

@@ -12,7 +12,7 @@
 namespace cxx_modgraph
 {
 
-inline constexpr unsigned int current_facts_version = 2;
+inline constexpr unsigned int current_facts_version = 3;
 
 struct InputArtifact
 {
@@ -55,6 +55,20 @@ struct TranslationUnit
     std::vector<std::string> required_modules;
     std::vector<DependencyReason> dependency_reasons;
     std::optional<ScanProvenance> provenance;
+    // Portable build context retained for complete build-database emitters.
+    std::vector<std::string> arguments;
+    std::vector<std::string> local_arguments;
+    std::filesystem::path work_directory;
+    std::string module_set = "default";
+    bool is_private = false;
+};
+
+struct ModuleSet
+{
+    std::string name;
+    std::string family_name;
+    std::vector<std::string> baseline_arguments;
+    std::vector<std::string> visible_sets;
 };
 
 struct ExternalModule
@@ -70,6 +84,7 @@ struct DependencyFacts
     std::vector<TranslationUnit> translation_units;
     std::vector<ExternalModule> external_modules;
     std::vector<InputArtifact> inputs;
+    std::vector<ModuleSet> module_sets;
 };
 
 enum class DiagnosticCode

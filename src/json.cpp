@@ -115,6 +115,40 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         }
 
         output << "]";
+        if (!unit.arguments.empty())
+        {
+            output << ",\n      \"arguments\": [";
+            for (std::size_t i = 0; i < unit.arguments.size(); ++i)
+            {
+                if (i)
+                    output << ", ";
+                write_escaped(output, unit.arguments[i]);
+            }
+            output << ']';
+        }
+        if (!unit.local_arguments.empty())
+        {
+            output << ",\n      \"local-arguments\": [";
+            for (std::size_t i = 0; i < unit.local_arguments.size(); ++i)
+            {
+                if (i)
+                    output << ", ";
+                write_escaped(output, unit.local_arguments[i]);
+            }
+            output << ']';
+        }
+        if (!unit.work_directory.empty())
+        {
+            output << ",\n      \"work-directory\": ";
+            write_escaped(output, normalized(unit.work_directory));
+        }
+        if (!unit.module_set.empty() && unit.module_set != "default")
+        {
+            output << ",\n      \"module-set\": ";
+            write_escaped(output, unit.module_set);
+        }
+        if (unit.is_private)
+            output << ",\n      \"private\": true";
         if (!unit.dependency_reasons.empty())
         {
             output << ",\n      \"dependency-reasons\": [";
@@ -180,7 +214,33 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, facts.inputs[i].digest);
         output << '}';
     }
-    output << (facts.inputs.empty() ? "]" : "\n  ]") << "\n}\n";
+    output << (facts.inputs.empty() ? "]" : "\n  ]") << ",\n  \"module-sets\": [";
+    std::vector<ModuleSet> sets = facts.module_sets;
+    std::ranges::sort(sets, {}, &ModuleSet::name);
+    for (std::size_t i = 0; i < sets.size(); ++i)
+    {
+        const auto &set = sets[i];
+        output << (i ? ",\n" : "\n") << "    {\"name\": ";
+        write_escaped(output, set.name);
+        output << ", \"family-name\": ";
+        write_escaped(output, set.family_name);
+        output << ", \"baseline-arguments\": [";
+        for (std::size_t j = 0; j < set.baseline_arguments.size(); ++j)
+        {
+            if (j)
+                output << ", ";
+            write_escaped(output, set.baseline_arguments[j]);
+        }
+        output << "], \"visible-sets\": [";
+        for (std::size_t j = 0; j < set.visible_sets.size(); ++j)
+        {
+            if (j)
+                output << ", ";
+            write_escaped(output, set.visible_sets[j]);
+        }
+        output << "]}";
+    }
+    output << (sets.empty() ? "]" : "\n  ]") << "\n}\n";
 }
 
 std::string to_json(const DependencyFacts &facts)

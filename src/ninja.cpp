@@ -147,7 +147,10 @@ void write_edge(std::ostream &output, const std::filesystem::path &target, std::
 
     output << '\n';
     output << "  source = " << escaped_path(source) << '\n';
-    output << "  output_dir = " << escaped_path(target.parent_path()) << '\n';
+    output << "  output_dir = "
+           << escaped_path(target.parent_path().empty() ? std::filesystem::path{"."}
+                                                        : target.parent_path())
+           << '\n';
     if (!provided_bmi.empty())
     {
         output << "  provided_bmi = " << escaped_path(provided_bmi) << '\n';
@@ -170,6 +173,10 @@ void write_edge(std::ostream &output, const std::filesystem::path &target, std::
     {
         output << ' ' << escape(module.name + "=" + normalized(module.bmi_path));
     }
+    output << "\n  msvc_module_flags =";
+    for (const ModuleImport &module : imports)
+        output << " /reference \"" << escape(module.name + "=" + normalized(module.bmi_path))
+               << "\"";
     output << "\n\n";
 }
 

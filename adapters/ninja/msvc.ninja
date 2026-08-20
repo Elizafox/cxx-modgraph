@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: 0BSD
+
+# MSVC rules for a fragment produced by `cxx-modgraph --emit ninja`.
+cxx = cl
+cxxflags = /nologo /std:c++latest /EHsc
+
+rule cxx_modgraph_bmi
+  command = cmake -E make_directory "$output_dir" && $cxx $cxxflags $msvc_module_flags /TP /interface /c "$source" /ifcOutput"$out" /Fo"$out.obj"
+  description = CXX IFC $out
+
+rule cxx_modgraph_module_object
+  command = cmake -E make_directory "$output_dir" && cmake -E copy "$provided_bmi.obj" "$out"
+  description = CXX $out
+
+rule cxx_modgraph_object
+  command = cmake -E make_directory "$output_dir" && $cxx $cxxflags $msvc_module_flags /c "$source" /Fo"$out"
+  description = CXX $out

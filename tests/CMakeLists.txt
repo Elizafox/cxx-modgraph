@@ -45,6 +45,18 @@ target_link_libraries(cxx-modgraph-p1689-tests PRIVATE cxx-modgraph::lib)
 
 add_test(NAME p1689-import COMMAND cxx-modgraph-p1689-tests)
 
+add_executable(cxx-modgraph-interchange-tests interchange_test.cpp)
+target_compile_features(cxx-modgraph-interchange-tests PRIVATE cxx_std_20)
+target_link_libraries(cxx-modgraph-interchange-tests PRIVATE cxx-modgraph::lib)
+add_test(NAME interchange COMMAND cxx-modgraph-interchange-tests)
+
+add_test(NAME cli-emit-p2977 COMMAND cxx-modgraph
+    --input ${CMAKE_CURRENT_SOURCE_DIR}/data/modules.p1689.json
+    --input-format p1689
+    --compdb ${CMAKE_CURRENT_SOURCE_DIR}/data/compile_commands.json
+    --external-module std=build/bmi/std.pcm
+    --emit p2977)
+
 add_test(
     NAME cli-normalize
     COMMAND cxx-modgraph
