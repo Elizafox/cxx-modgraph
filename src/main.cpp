@@ -15,6 +15,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -51,7 +52,6 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     CLI::App app{"Read, validate, and emit C++ module dependency facts.", "cxx-modgraph"};
     std::string input_format = "canonical";
     std::string emit_format = "json";
-    std::vector<std::string> external_modules;
 
     app.add_option("-i,--input", options.input_paths,
                    "Read dependency JSON; repeat for P1689 inputs")
@@ -70,19 +70,13 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     app.add_option("--bmi-extension", options.bmi_extension, "BMI filename suffix")
         ->type_name("X")
         ->default_str(".pcm");
-    app.add_option("--external-module", external_modules, "Register a prebuilt/external module")
+    app.add_option_function<std::pair<std::string, std::filesystem::path>>(
+           "--external-module", [&options](const auto &mapping)
+           { options.external_modules.push_back({mapping.first, mapping.second}); },
+           "Register a prebuilt/external module")
         ->type_name("NAME=PATH")
-        ->check(
-            [](const std::string &mapping)
-            {
-                const std::size_t separator = mapping.find('=');
-                if (separator == 0 || separator == std::string::npos ||
-                    separator + 1 == mapping.size())
-                {
-                    return std::string{"must have the form NAME=PATH"};
-                }
-                return std::string{};
-            });
+        ->delimiter('=')
+        ->trigger_on_parse();
     app.add_option("-o,--output", options.output_path, "Write output instead of stdout")
         ->type_name("FILE");
     app.add_option("--source-root", options.source_root,
@@ -112,13 +106,6 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     else if (emit_format == "ninja")
     {
         options.emit_format = Options::EmitFormat::ninja;
-    }
-
-    for (const std::string &mapping : external_modules)
-    {
-        const std::size_t separator = mapping.find('=');
-        options.external_modules.push_back(
-            {mapping.substr(0, separator), mapping.substr(separator + 1)});
     }
 
     return std::nullopt;
