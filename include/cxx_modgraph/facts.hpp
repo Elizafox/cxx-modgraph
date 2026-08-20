@@ -13,7 +13,7 @@
 namespace cxx_modgraph
 {
 
-inline constexpr unsigned int current_facts_version = 4;
+inline constexpr unsigned int current_facts_version = 5;
 
 // A BMI is only reusable inside an identical compatibility scope.  Empty fields are
 // deliberately meaningful: cxx-modgraph records policy supplied by the build tool; it
@@ -48,6 +48,37 @@ struct InputArtifact
 {
     std::filesystem::path path;
     std::string digest;
+};
+
+// Inputs that make a graph reproducible outside the machine where it was scanned.
+// These are declarations, not instructions to inspect the ambient environment.
+struct PathRemapping
+{
+    std::filesystem::path from;
+    std::filesystem::path to;
+};
+
+struct EnvironmentInput
+{
+    std::string name;
+    std::string value_digest;
+};
+
+struct ToolIdentity
+{
+    std::string name;
+    std::filesystem::path path;
+    std::string digest;
+    std::string version;
+    std::string execution_namespace = "host";
+};
+
+struct ContentDigest
+{
+    std::string kind;
+    std::filesystem::path path;
+    std::string digest;
+    std::string artifact_namespace = "target";
 };
 
 struct ScanProvenance
@@ -119,6 +150,11 @@ struct DependencyFacts
     std::vector<InputArtifact> inputs;
     std::vector<ModuleSet> module_sets;
     std::vector<BmiCacheRecord> bmi_cache;
+    std::vector<PathRemapping> path_remappings;
+    std::vector<EnvironmentInput> environment_inputs;
+    std::vector<ToolIdentity> tools;
+    std::vector<ContentDigest> content_digests;
+    std::string graph_digest;
 };
 
 enum class DiagnosticCode

@@ -46,6 +46,8 @@ endif()
 add_library(cxx-modgraph-lib
     src/facts.cpp
     src/graph.cpp
+    src/hermetic.cpp
+    src/incremental.cpp
     src/json.cpp
     src/json_reader.cpp
     src/make.cpp

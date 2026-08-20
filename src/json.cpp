@@ -301,7 +301,66 @@ void write_json(std::ostream &output, const DependencyFacts &facts)
         write_escaped(output, r.object_digest);
         output << '}';
     }
-    output << (cache.empty() ? "]" : "\n  ]") << "\n}\n";
+    output << (cache.empty() ? "]" : "\n  ]") << ",\n  \"path-remappings\": [";
+    auto remappings = facts.path_remappings;
+    std::ranges::sort(remappings, {}, &PathRemapping::from);
+    for (std::size_t i = 0; i < remappings.size(); ++i)
+    {
+        output << (i ? ",\n" : "\n") << "    {\"from\": ";
+        write_escaped(output, normalized(remappings[i].from));
+        output << ", \"to\": ";
+        write_escaped(output, normalized(remappings[i].to));
+        output << '}';
+    }
+    output << (remappings.empty() ? "]" : "\n  ]") << ",\n  \"environment-inputs\": [";
+    auto environment = facts.environment_inputs;
+    std::ranges::sort(environment, {}, &EnvironmentInput::name);
+    for (std::size_t i = 0; i < environment.size(); ++i)
+    {
+        output << (i ? ",\n" : "\n") << "    {\"name\": ";
+        write_escaped(output, environment[i].name);
+        output << ", \"value-digest\": ";
+        write_escaped(output, environment[i].value_digest);
+        output << '}';
+    }
+    output << (environment.empty() ? "]" : "\n  ]") << ",\n  \"tools\": [";
+    auto tools = facts.tools;
+    std::ranges::sort(tools, {}, &ToolIdentity::name);
+    for (std::size_t i = 0; i < tools.size(); ++i)
+    {
+        const auto &tool = tools[i];
+        output << (i ? ",\n" : "\n") << "    {\"name\": ";
+        write_escaped(output, tool.name);
+        output << ", \"path\": ";
+        write_escaped(output, normalized(tool.path));
+        output << ", \"digest\": ";
+        write_escaped(output, tool.digest);
+        output << ", \"version\": ";
+        write_escaped(output, tool.version);
+        output << ", \"namespace\": ";
+        write_escaped(output, tool.execution_namespace);
+        output << '}';
+    }
+    output << (tools.empty() ? "]" : "\n  ]") << ",\n  \"content-digests\": [";
+    auto digests = facts.content_digests;
+    std::ranges::sort(digests, [](const ContentDigest &a, const ContentDigest &b)
+                      { return std::tie(a.kind, a.path) < std::tie(b.kind, b.path); });
+    for (std::size_t i = 0; i < digests.size(); ++i)
+    {
+        const auto &item = digests[i];
+        output << (i ? ",\n" : "\n") << "    {\"kind\": ";
+        write_escaped(output, item.kind);
+        output << ", \"path\": ";
+        write_escaped(output, normalized(item.path));
+        output << ", \"digest\": ";
+        write_escaped(output, item.digest);
+        output << ", \"namespace\": ";
+        write_escaped(output, item.artifact_namespace);
+        output << '}';
+    }
+    output << (digests.empty() ? "]" : "\n  ]") << ",\n  \"graph-digest\": ";
+    write_escaped(output, facts.graph_digest);
+    output << "\n}\n";
 }
 
 std::string to_json(const DependencyFacts &facts)

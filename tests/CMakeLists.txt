@@ -36,6 +36,19 @@ target_link_libraries(cxx-modgraph-ninja-tests PRIVATE cxx-modgraph::lib)
 
 add_test(NAME ninja-emitter COMMAND cxx-modgraph-ninja-tests)
 
+add_executable(cxx-modgraph-incremental-tests incremental_test.cpp)
+target_compile_features(cxx-modgraph-incremental-tests PRIVATE cxx_std_20)
+target_link_libraries(cxx-modgraph-incremental-tests PRIVATE cxx-modgraph::lib)
+add_test(NAME incremental COMMAND cxx-modgraph-incremental-tests)
+
+add_executable(cxx-modgraph-hermetic-tests hermetic_test.cpp)
+target_compile_features(cxx-modgraph-hermetic-tests PRIVATE cxx_std_20)
+target_link_libraries(cxx-modgraph-hermetic-tests PRIVATE cxx-modgraph::lib)
+add_test(NAME hermetic COMMAND cxx-modgraph-hermetic-tests)
+
+add_test(NAME cli-emit-ninja-dyndep COMMAND cxx-modgraph
+    --input ${CMAKE_CURRENT_SOURCE_DIR}/data/std-modules.json --emit ninja-dyndep)
+
 add_executable(cxx-modgraph-p1689-tests
     p1689_test.cpp
 )

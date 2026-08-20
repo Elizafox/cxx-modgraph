@@ -65,4 +65,12 @@ int main()
     std::ranges::reverse(reversed.translation_units);
     require(output == cxx_modgraph::to_ninja(reversed),
             "Ninja output depends on fact insertion order");
+
+    const std::string dyndep = cxx_modgraph::to_ninja_dyndep(example_facts());
+    require(dyndep.starts_with("ninja_dyndep_version = 1\n"), "dyndep version header was missing");
+    require(dyndep.find("build build/obj/hello.o | build/bmi/hello.pcm: dyndep | "
+                        "build/bmi/hello@3Adetail.pcm") != std::string::npos,
+            "dyndep implicit outputs or inputs were incorrect");
+    require(dyndep.find("  restat = 1") != std::string::npos,
+            "dyndep module output was not marked restat");
 }

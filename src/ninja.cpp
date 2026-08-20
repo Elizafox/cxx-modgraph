@@ -285,4 +285,57 @@ std::string to_ninja(const DependencyFacts &facts)
     return output.str();
 }
 
+void write_ninja_dyndep(std::ostream &output, const DependencyFacts &facts)
+{
+    std::map<std::string, ModuleProvider> providers;
+    for (const ExternalModule &module : facts.external_modules)
+        providers.try_emplace(scope_key(module.name, module.module_set, module.bmi_compatibility),
+                              ModuleProvider{module.bmi_path, true, {}});
+    for (const TranslationUnit &unit : facts.translation_units)
+        for (const ProvidedModule &module : unit.provides)
+            providers.try_emplace(scope_key(module.name, unit.module_set, unit.bmi_compatibility),
+                                  ModuleProvider{module.bmi_path, false, unit.required_modules});
+
+    std::vector<const TranslationUnit *> units;
+    for (const auto &unit : facts.translation_units)
+        if (!unit.object_path.empty())
+            units.push_back(&unit);
+    std::ranges::sort(units, {},
+                      [](const TranslationUnit *unit) { return normalized(unit->object_path); });
+
+    output << "ninja_dyndep_version = 1\n";
+    for (const TranslationUnit *unit : units)
+    {
+        output << "build " << escaped_path(unit->object_path);
+        std::vector<std::filesystem::path> produced;
+        for (const auto &module : unit->provides)
+            produced.push_back(module.bmi_path);
+        std::ranges::sort(produced, {}, normalized);
+        if (!produced.empty())
+        {
+            output << " |";
+            for (const auto &path : produced)
+                output << ' ' << escaped_path(path);
+        }
+        output << ": dyndep";
+        const auto imports = imports_for(*unit, providers, facts, false);
+        if (!imports.empty())
+        {
+            output << " |";
+            for (const auto &module : imports)
+                output << ' ' << escaped_path(module.bmi_path);
+        }
+        output << '\n';
+        if (!produced.empty())
+            output << "  restat = 1\n";
+    }
+}
+
+std::string to_ninja_dyndep(const DependencyFacts &facts)
+{
+    std::ostringstream output;
+    write_ninja_dyndep(output, facts);
+    return output.str();
+}
+
 } // namespace cxx_modgraph

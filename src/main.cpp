@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 
 #include "cxx_modgraph/facts.hpp"
+#include "cxx_modgraph/incremental.hpp"
 #include "cxx_modgraph/json.hpp"
 #include "cxx_modgraph/make.hpp"
 #include "cxx_modgraph/ninja.hpp"
@@ -16,6 +17,7 @@
 #include <iostream>
 #include <iterator>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -40,6 +42,7 @@ struct Options
         json,
         make,
         ninja,
+        ninja_dyndep,
         p2977
     };
 
@@ -63,6 +66,7 @@ struct Options
     std::string query_module;
     std::filesystem::path query_source;
     bool check_fresh = false;
+    bool daemon = false;
     std::string scanner;
     std::string scanner_version;
     cxx_modgraph::BmiCompatibility compatibility;
@@ -79,6 +83,34 @@ std::string digest(std::string_view value)
     std::ostringstream out;
     out << "fnv1a64:" << std::hex << std::setfill('0') << std::setw(16) << hash;
     return out.str();
+}
+
+std::string unit_digest(const cxx_modgraph::TranslationUnit &unit)
+{
+    std::ostringstream out;
+    const auto add = [&](std::string_view value) { out << value.size() << ':' << value; };
+    add(unit.source_path.lexically_normal().generic_string());
+    add(unit.object_path.lexically_normal().generic_string());
+    add(unit.module_set);
+    add(unit.work_directory.lexically_normal().generic_string());
+    for (const auto &module : unit.provides)
+    {
+        add(module.name);
+        add(module.bmi_path.generic_string());
+    }
+    for (const auto &module : unit.required_modules)
+        add(module);
+    for (const auto &argument : unit.arguments)
+        add(argument);
+    for (const auto &argument : unit.local_arguments)
+        add(argument);
+    add(unit.bmi_compatibility.compiler_executable);
+    add(unit.bmi_compatibility.compiler_version);
+    add(unit.bmi_compatibility.target_triple);
+    add(unit.bmi_compatibility.sysroot);
+    add(unit.bmi_compatibility.configuration);
+    out << unit.is_private;
+    return digest(out.str());
 }
 
 bool has_explicit_compatibility(const cxx_modgraph::BmiCompatibility &c)
@@ -144,6 +176,8 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
                    "Compiler-adapter-specific BMI compatibility material; repeat as needed")
         ->type_name("VALUE");
     app.add_flag("--check-fresh", options.check_fresh, "Fail if any recorded graph input changed");
+    app.add_flag("--daemon", options.daemon,
+                 "Keep running and reload canonical fact files named on stdin");
     app.add_option_function<std::pair<std::string, std::filesystem::path>>(
            "--external-module", [&options](const auto &mapping)
            { options.external_modules.push_back({mapping.first, mapping.second}); },
@@ -161,7 +195,7 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
         ->type_name("DIR");
     app.add_option("--emit", emit_format, "Output format")
         ->type_name("FORMAT")
-        ->check(CLI::IsMember({"json", "make", "ninja", "p2977"}))
+        ->check(CLI::IsMember({"json", "make", "ninja", "ninja-dyndep", "p2977"}))
         ->default_str("json");
     app.set_version_flag("--version", "cxx-modgraph 0.1.0");
 
@@ -199,6 +233,10 @@ std::optional<int> parse_options(int argc, char **argv, Options &options)
     else if (emit_format == "ninja")
     {
         options.emit_format = Options::EmitFormat::ninja;
+    }
+    else if (emit_format == "ninja-dyndep")
+    {
+        options.emit_format = Options::EmitFormat::ninja_dyndep;
     }
     else if (emit_format == "p2977")
     {
@@ -400,6 +438,77 @@ int run(const Options &options)
     }
 
     const cxx_modgraph::AnalysisResult analysis = cxx_modgraph::analyze(facts);
+    if (options.daemon)
+    {
+        if (options.input_format != Options::InputFormat::canonical ||
+            options.input_paths.front() == "-")
+        {
+            std::cerr << "error: --daemon requires an initial canonical file input (not stdin)\n";
+            return 2;
+        }
+        if (!analysis.ok())
+        {
+            for (const auto &diagnostic : analysis.diagnostics)
+                std::cerr << "error: " << diagnostic.message << '\n';
+            return 1;
+        }
+        cxx_modgraph::IncrementalState state(std::move(facts));
+        std::string command;
+        while (std::getline(std::cin, command))
+        {
+            if (command == "quit")
+                break;
+            std::ifstream snapshot(command);
+            auto parsed =
+                snapshot ? cxx_modgraph::read_json(snapshot) : cxx_modgraph::JsonParseResult{};
+            if (!snapshot || !parsed.ok())
+            {
+                std::cout << "{\"ok\":false,\"error\":\"cannot load canonical snapshot\"}\n"
+                          << std::flush;
+                continue;
+            }
+            std::set<std::string> next_sources;
+            bool topology_changed = false;
+            std::set<std::string> affected;
+            for (auto &unit : parsed.facts->translation_units)
+            {
+                next_sources.insert(unit.source_path.lexically_normal().generic_string());
+                const auto current =
+                    std::ranges::find_if(state.facts().translation_units,
+                                         [&](const auto &old)
+                                         {
+                                             return old.source_path.lexically_normal() ==
+                                                    unit.source_path.lexically_normal();
+                                         });
+                if (current != state.facts().translation_units.end() &&
+                    unit_digest(*current) == unit_digest(unit))
+                    continue;
+                auto report = state.update(std::move(unit));
+                topology_changed = topology_changed || report.topology_changed;
+                affected.insert(report.affected_translation_units.begin(),
+                                report.affected_translation_units.end());
+            }
+            std::vector<std::filesystem::path> removed;
+            for (const auto &unit : state.facts().translation_units)
+                if (!next_sources.contains(unit.source_path.lexically_normal().generic_string()))
+                    removed.push_back(unit.source_path);
+            for (const auto &source : removed)
+            {
+                auto report = state.erase(source);
+                topology_changed = topology_changed || report.topology_changed;
+                affected.insert(report.affected_translation_units.begin(),
+                                report.affected_translation_units.end());
+            }
+            std::cout << "{\"ok\":" << (state.analysis().ok() ? "true" : "false")
+                      << ",\"topology-changed\":" << (topology_changed ? "true" : "false")
+                      << ",\"affected\":[";
+            std::size_t index = 0;
+            for (const auto &source : affected)
+                std::cout << (index++ ? "," : "") << std::quoted(source);
+            std::cout << "]}\n" << std::flush;
+        }
+        return 0;
+    }
     if (options.query != Options::Query::none)
     {
         auto print_path = [](const std::vector<cxx_modgraph::NodeId> &path)
@@ -524,6 +633,10 @@ int run(const Options &options)
     else if (options.emit_format == Options::EmitFormat::ninja)
     {
         cxx_modgraph::write_ninja(*output, facts);
+    }
+    else if (options.emit_format == Options::EmitFormat::ninja_dyndep)
+    {
+        cxx_modgraph::write_ninja_dyndep(*output, facts);
     }
     else
     {

@@ -124,7 +124,8 @@ public:
 
         reject_unknown(*root,
                        {"version", "source-root", "translation-units", "external-modules", "inputs",
-                        "module-sets", "bmi-cache"},
+                        "module-sets", "bmi-cache", "path-remappings", "environment-inputs",
+                        "tools", "content-digests", "graph-digest"},
                        "root");
 
         DependencyFacts facts;
@@ -152,6 +153,7 @@ public:
         decode_inputs(property(*root, "inputs", "root", false), facts);
         decode_sets(property(*root, "module-sets", "root", false), facts);
         decode_cache(property(*root, "bmi-cache", "root", false), facts);
+        decode_hermetic(*root, facts);
 
         return facts;
     }
@@ -162,6 +164,81 @@ public:
     }
 
 private:
+    void decode_hermetic(const JsonValue::Object &root, DependencyFacts &facts)
+    {
+        const auto decode_objects = [&](std::string_view name, const auto &decode)
+        {
+            const auto *items = array(property(root, name, "root", false), name);
+            if (!items)
+                return;
+            for (std::size_t i = 0; i < items->size(); ++i)
+            {
+                const std::string context = std::string(name) + "[" + std::to_string(i) + "]";
+                if (const auto *item = object(&(*items)[i], context))
+                    decode(*item, context);
+            }
+        };
+        decode_objects("path-remappings",
+                       [&](const auto &item, const std::string &c)
+                       {
+                           reject_unknown(item, {"from", "to"}, c);
+                           PathRemapping value;
+                           if (auto x = string(property(item, "from", c), c + ".from"))
+                               value.from = *x;
+                           if (auto x = string(property(item, "to", c), c + ".to"))
+                               value.to = *x;
+                           facts.path_remappings.push_back(std::move(value));
+                       });
+        decode_objects("environment-inputs",
+                       [&](const auto &item, const std::string &c)
+                       {
+                           reject_unknown(item, {"name", "value-digest"}, c);
+                           EnvironmentInput value;
+                           if (auto x = string(property(item, "name", c), c + ".name"))
+                               value.name = *x;
+                           if (auto x =
+                                   string(property(item, "value-digest", c), c + ".value-digest"))
+                               value.value_digest = *x;
+                           facts.environment_inputs.push_back(std::move(value));
+                       });
+        decode_objects(
+            "tools",
+            [&](const auto &item, const std::string &c)
+            {
+                reject_unknown(item, {"name", "path", "digest", "version", "namespace"}, c);
+                ToolIdentity value;
+                if (auto x = string(property(item, "name", c), c + ".name"))
+                    value.name = *x;
+                if (auto x = string(property(item, "path", c), c + ".path"))
+                    value.path = *x;
+                if (auto x = string(property(item, "digest", c), c + ".digest"))
+                    value.digest = *x;
+                if (auto x = string(property(item, "version", c, false), c + ".version"))
+                    value.version = *x;
+                if (auto x = string(property(item, "namespace", c, false), c + ".namespace"))
+                    value.execution_namespace = *x;
+                facts.tools.push_back(std::move(value));
+            });
+        decode_objects("content-digests",
+                       [&](const auto &item, const std::string &c)
+                       {
+                           reject_unknown(item, {"kind", "path", "digest", "namespace"}, c);
+                           ContentDigest value;
+                           if (auto x = string(property(item, "kind", c), c + ".kind"))
+                               value.kind = *x;
+                           if (auto x = string(property(item, "path", c), c + ".path"))
+                               value.path = *x;
+                           if (auto x = string(property(item, "digest", c), c + ".digest"))
+                               value.digest = *x;
+                           if (auto x =
+                                   string(property(item, "namespace", c, false), c + ".namespace"))
+                               value.artifact_namespace = *x;
+                           facts.content_digests.push_back(std::move(value));
+                       });
+        if (auto x = string(property(root, "graph-digest", "root", false), "graph-digest"))
+            facts.graph_digest = *x;
+    }
+
     void error(std::string message)
     {
         errors_.push_back({1, 1, std::move(message)});

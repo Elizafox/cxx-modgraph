@@ -12,5 +12,7 @@ namespace cxx_modgraph
 
 void write_ninja(std::ostream &output, const DependencyFacts &facts);
 [[nodiscard]] std::string to_ninja(const DependencyFacts &facts);
+void write_ninja_dyndep(std::ostream &output, const DependencyFacts &facts);
+[[nodiscard]] std::string to_ninja_dyndep(const DependencyFacts &facts);
 
 } // namespace cxx_modgraph

@@ -234,13 +234,13 @@ net for direct/manual invocation.
 
 ## Canonical dependency facts
 
-The version 3 format records a source root, translation-unit source and object
+The version 5 format records a source root, translation-unit source and object
 paths, provided modules and their BMI paths, required module names, and external
 prebuilt modules. It additionally records P1689/scanner provenance, interface
 status, lookup methods, exact edge reasons, losslessly retained scan JSON, and
 input digests. Version 3 adds compile and local arguments, working directories,
-module sets, baseline arguments, and visibility. Version 1 and 2 inputs remain
-accepted. Paths are normalized and serialized with `/` separators. Arrays
+module sets, baseline arguments, and visibility. Version 5 adds hermetic and
+remote-execution metadata. Older inputs remain accepted. Paths are normalized and serialized with `/` separators. Arrays
 are sorted by stable keys when emitted so equivalent facts produce identical JSON.
 
 See [`docs/canonical-facts.schema.json`](docs/canonical-facts.schema.json) for the
@@ -285,6 +285,47 @@ include build/modules.ninja
 ```sh
 cxx-modgraph --input dependencies.json --emit ninja --output build/modules.ninja
 ```
+
+Ninja dyndep is an additional lowering mode for builds where scanning happens
+during the build. It emits only the Ninja dyndep file; it does not replace the
+static fragment above:
+
+```sh
+cxx-modgraph --input dependencies.json --emit ninja-dyndep --output build/modules.dd
+```
+
+The consuming compile edges name `build/modules.dd` with Ninja's `dyndep`
+binding. Provided BMIs become implicit outputs and directly imported BMIs become
+implicit inputs.
+
+## Optional incremental daemon
+
+`--daemon` keeps the canonical graph and its provider index, reverse edges,
+topological levels, and incremental caches in memory. The initial `--input` is
+loaded normally. Thereafter, write one canonical snapshot path per line to
+standard input; one JSON response is written per update:
+
+```sh
+cxx-modgraph --input build/dependencies.json --daemon
+build/dependencies.next.json
+```
+
+The response contains `topology-changed` and the transitive set of affected
+translation units. A line containing `quit` exits. Unchanged units are skipped.
+The public `IncrementalState` API additionally exposes per-unit P1689 and compile
+command digest caches and emitted backend fragment caching for embedding in a
+file watcher or RPC service. Batch operation remains the default.
+
+## Hermetic metadata
+
+Canonical version 5 records ordered path remappings, declared environment input
+digests, explicit tool identities, content digests for sources/sysroots/graph
+records/outputs, and `host` versus `target` namespaces. Values are declarations:
+cxx-modgraph never reads undeclared environment variables or hashes a sysroot on
+its own. `remap_path`, `content_digest`, and `graph_record_digest` provide the
+corresponding embedding utilities. The graph digest hashes canonical JSON with
+its own `graph-digest` field cleared, so the address is deterministic and does
+not depend on itself.
 
 ## Contributing
 
