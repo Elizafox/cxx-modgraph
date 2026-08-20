@@ -1,5 +1,7 @@
 # cxx-modgraph
 
+[![CI](https://github.com/Elizafox/cxx-modgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Elizafox/cxx-modgraph/actions/workflows/ci.yml)
+
 `cxx-modgraph` consumes C++ module dependency facts, validates them as a directed
 acyclic graph, and emits data suitable for build systems.
 
