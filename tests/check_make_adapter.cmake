@@ -17,12 +17,12 @@ CXX_MODGRAPH_RULES := build/modules.mk
 CXX_MODGRAPH_COMPILATION_DATABASE := build/compile_commands.json
 CXX_MODGRAPH_MODULE_PATHS := modules
 CXX_MODGRAPH_SOURCES := src/one/main.cpp src/two/main.cpp
-include @adapter@
+include __CXX_MODGRAPH_ADAPTER__
 .PHONY: clean
 clean: build/compile_commands.json
 ]=])
 file(READ "${work_directory}/Makefile" makefile)
-string(REPLACE "@adapter@" "${adapter}" makefile "${makefile}")
+string(REPLACE "__CXX_MODGRAPH_ADAPTER__" "${adapter}" makefile "${makefile}")
 file(WRITE "${work_directory}/Makefile" "${makefile}")
 
 execute_process(
