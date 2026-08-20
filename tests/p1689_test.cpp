@@ -54,7 +54,8 @@ void imports_p1689_with_compilation_database_sources()
     require(result.facts->translation_units.size() == 2, "P1689 rules were not imported");
     require(result.facts->translation_units[0].source_path == "src/hello.cppm",
             "source was not obtained from the compilation database");
-    require(result.facts->translation_units[0].provides[0].bmi_path == "out/bmi/hello-detail.pcm",
+    require(result.facts->translation_units[0].provides[0].bmi_path ==
+                "out/bmi/hello%3Adetail.pcm",
             "Clang partition BMI name was not derived correctly");
     require(cxx_modgraph::analyze(*result.facts).ok(), "imported facts did not form a valid graph");
 }
@@ -67,10 +68,41 @@ void requires_matching_compilation_database_output()
     require(result.errors.size() == 2, "unmapped outputs were not diagnosed");
 }
 
+void encodes_distinct_logical_names_to_distinct_bmis()
+{
+    constexpr std::string_view colliding_names = R"({
+      "version": 1,
+      "rules": [
+        {"primary-output":"a.o","provides":[{"logical-name":"hello:detail"}]},
+        {"primary-output":"b.o","provides":[{"logical-name":"hello-detail"}]},
+        {"primary-output":"c.o","provides":[{"logical-name":"hello%3Adetail"}]}
+      ]
+    })";
+    constexpr std::string_view colliding_commands = R"([
+      {"file":"a.cppm","output":"a.o"},
+      {"file":"b.cppm","output":"b.o"},
+      {"file":"c.cppm","output":"c.o"}
+    ])";
+
+    const cxx_modgraph::P1689ImportResult result =
+        cxx_modgraph::import_p1689(colliding_names, colliding_commands);
+    require(result.ok(), "distinct logical module names were rejected");
+    require(result.facts->translation_units[0].provides[0].bmi_path ==
+                "build/bmi/hello%3Adetail.pcm",
+            "partition separator was not encoded");
+    require(result.facts->translation_units[1].provides[0].bmi_path ==
+                "build/bmi/hello-detail.pcm",
+            "literal hyphen was not preserved");
+    require(result.facts->translation_units[2].provides[0].bmi_path ==
+                "build/bmi/hello%253Adetail.pcm",
+            "literal percent was not encoded");
+}
+
 } // namespace
 
 int main()
 {
     imports_p1689_with_compilation_database_sources();
     requires_matching_compilation_database_output();
+    encodes_distinct_logical_names_to_distinct_bmis();
 }

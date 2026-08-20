@@ -140,10 +140,27 @@ std::map<std::string, std::filesystem::path> read_compilation_database(const Jso
 
 std::filesystem::path bmi_path(std::string module_name, const P1689ImportOptions &options)
 {
-    std::ranges::replace(module_name, ':', '-');
-    std::ranges::replace(module_name, '/', '_');
-    std::ranges::replace(module_name, '\\', '_');
-    return options.bmi_directory / (module_name + ".pcm");
+    static constexpr char hex[] = "0123456789ABCDEF";
+    std::string filename;
+    filename.reserve(module_name.size());
+    for (const unsigned char character : module_name)
+    {
+        if ((character >= 'a' && character <= 'z') ||
+            (character >= 'A' && character <= 'Z') ||
+            (character >= '0' && character <= '9') || character == '-' || character == '_' ||
+            character == '.')
+        {
+            filename.push_back(static_cast<char>(character));
+        }
+        else
+        {
+            filename.push_back('%');
+            filename.push_back(hex[character >> 4]);
+            filename.push_back(hex[character & 0x0f]);
+        }
+    }
+
+    return options.bmi_directory / (filename + ".pcm");
 }
 
 void read_provides(const JsonValue::Object &rule, const std::string &context,
