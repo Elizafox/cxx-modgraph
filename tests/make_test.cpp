@@ -79,15 +79,14 @@ void emits_deterministically()
 void emits_explicit_partition_mapping()
 {
     cxx_modgraph::DependencyFacts facts;
-    facts.translation_units = {
-        {.source_path = "modules/detail.cppm",
-         .object_path = "build/obj/modules/detail.o",
-         .provides = {{"hello:detail", "build/bmi/hello%3Adetail.pcm"}},
-         .required_modules = {}},
-        {.source_path = "modules/hello.cppm",
-         .object_path = "build/obj/modules/hello.o",
-         .provides = {{"hello", "build/bmi/hello.pcm"}},
-         .required_modules = {"hello:detail"}}};
+    facts.translation_units = {{.source_path = "modules/detail.cppm",
+                                .object_path = "build/obj/modules/detail.o",
+                                .provides = {{"hello:detail", "build/bmi/hello%3Adetail.pcm"}},
+                                .required_modules = {}},
+                               {.source_path = "modules/hello.cppm",
+                                .object_path = "build/obj/modules/hello.o",
+                                .provides = {{"hello", "build/bmi/hello.pcm"}},
+                                .required_modules = {"hello:detail"}}};
 
     const std::string output = cxx_modgraph::to_make(facts);
     require(output.find("build/bmi/hello.pcm: CXX_MODGRAPH_IMPORTS := "

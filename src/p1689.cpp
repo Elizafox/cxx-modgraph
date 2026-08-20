@@ -145,8 +145,7 @@ std::filesystem::path bmi_path(std::string module_name, const P1689ImportOptions
     filename.reserve(module_name.size());
     for (const unsigned char character : module_name)
     {
-        if ((character >= 'a' && character <= 'z') ||
-            (character >= 'A' && character <= 'Z') ||
+        if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
             (character >= '0' && character <= '9') || character == '-' || character == '_' ||
             character == '.')
         {

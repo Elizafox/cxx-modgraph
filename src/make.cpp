@@ -111,9 +111,9 @@ void write_prerequisites(std::ostream &output, const std::filesystem::path &targ
     output << "\n\n";
 }
 
-std::vector<ModuleImport>
-import_bmis(const TranslationUnit &unit, const std::map<std::string, ModuleProvider> &providers,
-            const DependencyFacts &facts)
+std::vector<ModuleImport> import_bmis(const TranslationUnit &unit,
+                                      const std::map<std::string, ModuleProvider> &providers,
+                                      const DependencyFacts &facts)
 {
     std::set<std::string> seen;
     std::vector<ModuleImport> result;

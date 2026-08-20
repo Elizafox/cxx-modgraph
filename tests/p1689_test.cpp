@@ -54,8 +54,7 @@ void imports_p1689_with_compilation_database_sources()
     require(result.facts->translation_units.size() == 2, "P1689 rules were not imported");
     require(result.facts->translation_units[0].source_path == "src/hello.cppm",
             "source was not obtained from the compilation database");
-    require(result.facts->translation_units[0].provides[0].bmi_path ==
-                "out/bmi/hello%3Adetail.pcm",
+    require(result.facts->translation_units[0].provides[0].bmi_path == "out/bmi/hello%3Adetail.pcm",
             "Clang partition BMI name was not derived correctly");
     require(cxx_modgraph::analyze(*result.facts).ok(), "imported facts did not form a valid graph");
 }
@@ -90,8 +89,7 @@ void encodes_distinct_logical_names_to_distinct_bmis()
     require(result.facts->translation_units[0].provides[0].bmi_path ==
                 "build/bmi/hello%3Adetail.pcm",
             "partition separator was not encoded");
-    require(result.facts->translation_units[1].provides[0].bmi_path ==
-                "build/bmi/hello-detail.pcm",
+    require(result.facts->translation_units[1].provides[0].bmi_path == "build/bmi/hello-detail.pcm",
             "literal hyphen was not preserved");
     require(result.facts->translation_units[2].provides[0].bmi_path ==
                 "build/bmi/hello%253Adetail.pcm",
