@@ -54,6 +54,11 @@ void emits_make_prerequisites_and_metadata()
     require(output.find("build/bmi/std.compat.pcm: CXX_MODGRAPH_IMPORTS := "
                         "std=build/bmi/std.pcm") != std::string::npos,
             "named import metadata was not emitted");
+    require(output.find("build/obj/main.o: CXX_MODGRAPH_IMPORTS := "
+                        "std=build/bmi/std.pcm "
+                        "std.compat=build/bmi/std.compat.pcm "
+                        "vendor.logging=/project/vendor/bmi/logging.pcm") != std::string::npos,
+            "transitive named import metadata was not emitted");
     require(output.find("build/bmi/std.compat.pcm: \\\n"
                         "    /project/modules/std.compat.cppm \\\n"
                         "    build/bmi/std.pcm") != std::string::npos,
@@ -81,7 +86,7 @@ void emits_explicit_partition_mapping()
     cxx_modgraph::DependencyFacts facts;
     facts.translation_units = {{.source_path = "modules/detail.cppm",
                                 .object_path = "build/obj/modules/detail.o",
-                                .provides = {{"hello:detail", "build/bmi/hello%3Adetail.pcm"}},
+                                .provides = {{"hello:detail", "build/bmi/hello@3Adetail.pcm"}},
                                 .required_modules = {}},
                                {.source_path = "modules/hello.cppm",
                                 .object_path = "build/obj/modules/hello.o",
@@ -90,7 +95,7 @@ void emits_explicit_partition_mapping()
 
     const std::string output = cxx_modgraph::to_make(facts);
     require(output.find("build/bmi/hello.pcm: CXX_MODGRAPH_IMPORTS := "
-                        "hello\\:detail=build/bmi/hello\\%3Adetail.pcm") != std::string::npos,
+                        "hello\\:detail=build/bmi/hello@3Adetail.pcm") != std::string::npos,
             "partition import was not emitted as an explicit name-to-BMI mapping");
 }
 

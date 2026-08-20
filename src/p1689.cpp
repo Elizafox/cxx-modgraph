@@ -154,7 +154,7 @@ std::filesystem::path bmi_path(std::string module_name, const P1689ImportOptions
         }
         else
         {
-            filename.push_back('%');
+            filename.push_back('@');
             filename.push_back(hex[character >> 4]);
             filename.push_back(hex[character & 0x0f]);
         }

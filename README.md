@@ -36,9 +36,13 @@ ctest --test-dir build -R host-std-modules --output-on-failure
 The test is reported as skipped when the configured toolchain cannot supply those
 modules.
 
-See [`examples/make-hello`](examples/make-hello) for an end-to-end GNU Make and
-Clang project. It builds libc++'s `std` module, a custom `helloworld` module, and
-an importing executable using a generated dependency fragment.
+Two end-to-end GNU Make and Clang projects demonstrate the adapter:
+
+- [`make-hello-simple`](examples/make-hello-simple) builds one custom module and
+  an importing executable.
+- [`make-hello-complex`](examples/make-hello-complex) builds a nested module graph
+  with exported and internal partitions, a dotted module, an implementation unit,
+  and a diamond dependency.
 
 The graph library uses a deterministic implementation of Kahn's algorithm and
 exposes both a topological order and parallel build levels.
@@ -81,9 +85,13 @@ do not collide. Clang determines which module each file provides, not the
 filename. Projects can override `CXX_MODGRAPH_MODULE_EXTENSIONS`.
 
 Module partitions are represented by their P1689 logical names (for example,
-`hello:detail`). Generated BMI filenames use reversible percent encoding, and the
-Make metadata records imports as explicit `name=path` mappings. The Clang adapter
-therefore does not depend on compiler filename conventions to locate partitions.
+`hello:detail`). Generated BMI filenames use reversible hexadecimal escape
+encoding (`hello@3Adetail.pcm`), and the Make metadata records imports as
+explicit `name=path` mappings. The Clang adapter therefore does not depend on
+compiler filename conventions to locate partitions. The mappings include the
+transitive import closure because Clang may need to load a partition's
+dependencies while reading its BMI; emitted Make prerequisites intentionally
+preserve only the direct P1689 edges.
 
 ## Canonical dependency facts
 

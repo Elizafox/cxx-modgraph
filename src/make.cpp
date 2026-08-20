@@ -20,6 +20,7 @@ struct ModuleProvider
 {
     std::filesystem::path bmi_path;
     bool external = false;
+    std::vector<std::string> required_modules;
 };
 
 struct ModuleImport
@@ -113,16 +114,21 @@ void write_prerequisites(std::ostream &output, const std::filesystem::path &targ
 
 std::vector<ModuleImport> import_bmis(const TranslationUnit &unit,
                                       const std::map<std::string, ModuleProvider> &providers,
-                                      const DependencyFacts &facts)
+                                      const DependencyFacts &facts, bool transitive)
 {
     std::set<std::string> seen;
     std::vector<ModuleImport> result;
-    for (const std::string &required : unit.required_modules)
+    const auto visit = [&](const std::string &required, const auto &visit_module) -> void
     {
+        if (!seen.insert(required).second)
+        {
+            return;
+        }
+
         const auto provider = providers.find(required);
         if (provider == providers.end())
         {
-            continue;
+            return;
         }
 
         std::filesystem::path path = provider->second.bmi_path;
@@ -131,10 +137,18 @@ std::vector<ModuleImport> import_bmis(const TranslationUnit &unit,
             path = resolve_input(facts, path);
         }
 
-        if (seen.insert(required).second)
+        result.push_back({required, std::move(path)});
+        if (transitive)
         {
-            result.push_back({required, std::move(path)});
+            for (const std::string &dependency : provider->second.required_modules)
+            {
+                visit_module(dependency, visit_module);
+            }
         }
+    };
+    for (const std::string &required : unit.required_modules)
+    {
+        visit(required, visit);
     }
 
     std::ranges::sort(result, {}, &ModuleImport::name);
@@ -171,13 +185,14 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
     std::map<std::string, ModuleProvider> providers;
     for (const ExternalModule &module : facts.external_modules)
     {
-        providers.try_emplace(module.name, ModuleProvider{module.bmi_path, true});
+        providers.try_emplace(module.name, ModuleProvider{module.bmi_path, true, {}});
     }
     for (const TranslationUnit &unit : facts.translation_units)
     {
         for (const ProvidedModule &module : unit.provides)
         {
-            providers.try_emplace(module.name, ModuleProvider{module.bmi_path, false});
+            providers.try_emplace(module.name,
+                                  ModuleProvider{module.bmi_path, false, unit.required_modules});
         }
     }
 
@@ -212,8 +227,10 @@ void write_make(std::ostream &output, const DependencyFacts &facts)
     for (const TranslationUnit *unit : units)
     {
         const std::filesystem::path source = resolve_input(facts, unit->source_path);
-        const std::vector<ModuleImport> imports = import_bmis(*unit, providers, facts);
-        const std::vector<std::filesystem::path> imported_bmis = import_paths(imports);
+        const std::vector<ModuleImport> direct_imports =
+            import_bmis(*unit, providers, facts, false);
+        const std::vector<ModuleImport> imports = import_bmis(*unit, providers, facts, true);
+        const std::vector<std::filesystem::path> imported_bmis = import_paths(direct_imports);
 
         std::vector<ProvidedModule> provided = unit->provides;
         std::ranges::sort(provided, {}, &ProvidedModule::name);
