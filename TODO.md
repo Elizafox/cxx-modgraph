@@ -5,4 +5,4 @@
 - [x] Support for Ninja
 - [x] Use a proper options parsr
 - [ ] Support for other build systems
-- [ ] Cross-compilation support for make adapters
+- [ ] Cross-compilation support for supported adapters
