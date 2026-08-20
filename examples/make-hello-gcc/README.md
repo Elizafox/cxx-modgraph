@@ -1,8 +1,9 @@
 # GCC and Make module graph
 
-This example uses GCC 16, GNU Make, and the GCC adapter to build libstdc++'s
-`std` and `std.compat` modules automatically, then scan and build a primary
-module interface with two partitions in nested directories.
+This example uses GCC 16, GNU Make, and the auto-detecting adapter entry point
+to select the GCC adapter and build libstdc++'s `std` and `std.compat` modules
+automatically, then scan and build a primary module interface with two
+partitions in nested directories.
 
 From the repository root:
 

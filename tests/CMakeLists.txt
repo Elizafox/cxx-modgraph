@@ -100,6 +100,20 @@ if(CXX_MODGRAPH_MAKE_EXECUTABLE)
                 -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/make-adapter
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/check_make_adapter.cmake
         )
+        find_program(CXX_MODGRAPH_TEST_CLANGXX NAMES clang++)
+        find_program(CXX_MODGRAPH_TEST_GXX NAMES g++)
+        if(CXX_MODGRAPH_TEST_CLANGXX AND CXX_MODGRAPH_TEST_GXX)
+            add_test(
+                NAME make-adapter-auto-detect
+                COMMAND ${CMAKE_COMMAND}
+                    -Dmake_program=${CXX_MODGRAPH_MAKE_EXECUTABLE}
+                    -Dadapter=${PROJECT_SOURCE_DIR}/adapters/make/cxx-modgraph.mk
+                    -Dclang_compiler=${CXX_MODGRAPH_TEST_CLANGXX}
+                    -Dgcc_compiler=${CXX_MODGRAPH_TEST_GXX}
+                    -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/make-adapter-auto
+                    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_auto_adapter.cmake
+            )
+        endif()
     endif()
 endif()
 

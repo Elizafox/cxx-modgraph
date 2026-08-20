@@ -27,7 +27,8 @@ The expected output is:
 ```
 
 The Makefile includes the reusable
-[`clang.mk`](../../adapters/make/clang.mk) adapter. The adapter asks Clang for the
+[`cxx-modgraph.mk`](../../adapters/make/cxx-modgraph.mk) entry point. It detects
+Clang and selects the Clang adapter, which asks the compiler for the
 location of `libc++.modules.json`, derives the adjacent `std.cppm` location, and
 provides the BMI and object compilation recipes. Override the source when a
 toolchain uses a different layout:

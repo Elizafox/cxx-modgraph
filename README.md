@@ -95,6 +95,12 @@ module interface's `.gcm` and object together in one race-free compilation.
 Set `CXX_MODGRAPH_USE_LIBSTDCXX_STD := 1` to build GCC 16's `std` and `std.compat`
 modules automatically with `--compile-std-module` and link their objects.
 
+Projects can include [`cxx-modgraph.mk`](adapters/make/cxx-modgraph.mk) instead of
+selecting an adapter directly. It probes `$(CXX)` and includes `clang.mk` or
+`gcc.mk`; unsupported compilers stop with a Make error. Set
+`CXX_MODGRAPH_COMPILER := clang` or `gcc` to override detection, which is useful
+for compiler wrappers that do not forward preprocessing probes.
+
 Module partitions are represented by their P1689 logical names (for example,
 `hello:detail`). Generated BMI filenames use reversible hexadecimal escape
 encoding (`hello@3Adetail.pcm`), and the Make metadata records imports as

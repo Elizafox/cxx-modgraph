@@ -9,7 +9,7 @@ CXX_MODGRAPH_SOURCES := src/main.cpp
 CXX_MODGRAPH_MODULE_PATHS := modules
 CXX_MODGRAPH_USE_LIBCXX_STD := 1
 
-include ../../adapters/make/clang.mk
+include ../../adapters/make/cxx-modgraph.mk
 
 .PHONY: all clean
 all: hello

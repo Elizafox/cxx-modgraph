@@ -25,7 +25,8 @@ Hello, world!
 ```
 
 The Makefile lists `src/main.cpp` and declares `modules` as a local module path.
-The [`clang.mk`](../../adapters/make/clang.mk) adapter discovers
+The auto-detecting [`cxx-modgraph.mk`](../../adapters/make/cxx-modgraph.mk) entry
+point selects the Clang adapter, which discovers
 `modules/helloworld.cppm`, generates a compilation database, asks
 `clang-scan-deps` for P1689 dependency data, and invokes `cxx-modgraph` to emit
 `build/modules.mk`. Clang determines the logical module name from the source; the
