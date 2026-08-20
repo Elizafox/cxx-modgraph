@@ -95,3 +95,34 @@ if(NOT host_test_configured)
     )
     set_tests_properties(host-std-modules PROPERTIES SKIP_REGULAR_EXPRESSION "^SKIP:")
 endif()
+
+find_program(host_gcc_compiler NAMES g++-16 g++)
+find_program(host_gcc_make_program NAMES gmake make)
+if(host_gcc_compiler AND host_gcc_make_program)
+    execute_process(
+        COMMAND ${host_gcc_compiler} -dumpfullversion
+        OUTPUT_VARIABLE host_gcc_version
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+endif()
+if(host_gcc_version VERSION_GREATER_EQUAL 16)
+    add_test(
+        NAME host-make-gcc
+        COMMAND ${CMAKE_COMMAND} -E env
+            CCACHE_DIR=${CMAKE_CURRENT_BINARY_DIR}/host-make-gcc/ccache
+            ${CMAKE_COMMAND}
+            -Dcompiler=${host_gcc_compiler}
+            -Dmake_program=${host_gcc_make_program}
+            -Dmodgraph=$<TARGET_FILE:cxx-modgraph>
+            -Dsource_root=${PROJECT_SOURCE_DIR}
+            -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/host-make-gcc/work
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/host/run_make_gcc_example.cmake
+    )
+else()
+    add_test(
+        NAME host-make-gcc
+        COMMAND ${CMAKE_COMMAND} -E echo "SKIP: GCC 16 or newer is unavailable"
+    )
+    set_tests_properties(host-make-gcc PROPERTIES SKIP_REGULAR_EXPRESSION "^SKIP:")
+endif()

@@ -1,4 +1,5 @@
 # Future implementation items
 
-- [ ] Makefile support for GCC
+- [x] Makefile support for GCC
+- Auto-detecting makefile system that selects the correct makefile backend
 - [ ] Support for other build systems

@@ -8,9 +8,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace
 {
@@ -29,11 +32,12 @@ struct Options
         p1689
     };
 
-    std::filesystem::path input_path;
+    std::vector<std::filesystem::path> input_paths;
     std::optional<std::filesystem::path> output_path;
     std::optional<std::filesystem::path> source_root;
     std::optional<std::filesystem::path> compilation_database;
     std::filesystem::path bmi_directory = "build/bmi";
+    std::string bmi_extension = ".pcm";
     std::vector<cxx_modgraph::ExternalModule> external_modules;
     bool help = false;
     bool version = false;
@@ -48,10 +52,11 @@ void print_usage(std::ostream &output)
               "Read, validate, and emit C++ module dependency facts.\n"
               "\n"
               "Options:\n"
-              "  -i, --input FILE       Read dependency JSON; use - for stdin\n"
+              "  -i, --input FILE       Read dependency JSON; repeat for P1689 inputs\n"
               "      --input-format FMT Read canonical (default) or p1689 JSON\n"
               "      --compdb FILE      Compilation database paired with P1689 input\n"
               "      --bmi-dir DIR      BMI output directory for P1689 providers\n"
+              "      --bmi-extension X BMI filename suffix (default: .pcm)\n"
               "      --external-module NAME=PATH\n"
               "                           Register a prebuilt/external module\n"
               "  -o, --output FILE      Write output to FILE instead of stdout\n"
@@ -82,7 +87,7 @@ std::optional<Options> parse_options(int argc, char **argv)
                 std::cerr << "error: " << argument << " requires a value\n";
                 return std::nullopt;
             }
-            options.input_path = argv[index];
+            options.input_paths.emplace_back(argv[index]);
         }
         else if (argument == "--output" || argument == "-o")
         {
@@ -132,6 +137,16 @@ std::optional<Options> parse_options(int argc, char **argv)
                 return std::nullopt;
             }
             options.bmi_directory = argv[index];
+        }
+        else if (argument == "--bmi-extension")
+        {
+            if (++index == argc)
+            {
+                std::cerr << "error: --bmi-extension requires a value\n";
+                return std::nullopt;
+            }
+
+            options.bmi_extension = argv[index];
         }
         else if (argument == "--external-module")
         {
@@ -194,26 +209,32 @@ std::optional<Options> parse_options(int argc, char **argv)
 
 int run(const Options &options)
 {
-    std::ifstream input_file;
-    std::istream *input = &std::cin;
-    if (options.input_path != "-")
+    if (options.input_format == Options::InputFormat::canonical && options.input_paths.size() != 1)
     {
-        input_file.open(options.input_path);
-        if (!input_file)
-        {
-            std::cerr << "error: cannot open input '" << options.input_path.string() << "'\n";
-            return 1;
-        }
-        input = &input_file;
+        std::cerr << "error: repeated --input is only supported for P1689 input\n";
+        return 2;
     }
-
-    std::ostringstream input_contents;
-    input_contents << input->rdbuf();
 
     cxx_modgraph::DependencyFacts facts;
     std::vector<cxx_modgraph::JsonError> parse_errors;
     if (options.input_format == Options::InputFormat::canonical)
     {
+        std::ifstream input_file;
+        std::istream *input = &std::cin;
+        if (options.input_paths.front() != "-")
+        {
+            input_file.open(options.input_paths.front());
+            if (!input_file)
+            {
+                std::cerr << "error: cannot open input '" << options.input_paths.front().string()
+                          << "'\n";
+                return 1;
+            }
+
+            input = &input_file;
+        }
+        std::ostringstream input_contents;
+        input_contents << input->rdbuf();
         cxx_modgraph::JsonParseResult parsed = cxx_modgraph::parse_json(input_contents.str());
         if (parsed.ok())
         {
@@ -246,16 +267,46 @@ int run(const Options &options)
         cxx_modgraph::P1689ImportOptions import_options;
         import_options.source_root = options.source_root.value_or(".");
         import_options.bmi_directory = options.bmi_directory;
-        import_options.external_modules = options.external_modules;
-        cxx_modgraph::P1689ImportResult imported = cxx_modgraph::import_p1689(
-            input_contents.str(), command_contents.str(), import_options);
-        if (imported.ok())
+        import_options.bmi_extension = options.bmi_extension;
+        facts.source_root = import_options.source_root;
+        facts.external_modules = options.external_modules;
+        for (const std::filesystem::path &input_path : options.input_paths)
         {
-            facts = std::move(*imported.facts);
-        }
-        else
-        {
-            parse_errors = std::move(imported.errors);
+            if (input_path == "-" && options.input_paths.size() != 1)
+            {
+                std::cerr << "error: stdin cannot be combined with multiple P1689 inputs\n";
+                return 2;
+            }
+            std::ifstream input_file;
+            std::istream *input = &std::cin;
+            if (input_path != "-")
+            {
+                input_file.open(input_path);
+                if (!input_file)
+                {
+                    std::cerr << "error: cannot open input '" << input_path.string() << "'\n";
+                    return 1;
+                }
+
+                input = &input_file;
+            }
+            std::ostringstream input_contents;
+            input_contents << input->rdbuf();
+            cxx_modgraph::P1689ImportResult imported = cxx_modgraph::import_p1689(
+                input_contents.str(), command_contents.str(), import_options);
+            if (imported.ok())
+            {
+                auto &units = imported.facts->translation_units;
+                facts.translation_units.insert(facts.translation_units.end(),
+                                               std::make_move_iterator(units.begin()),
+                                               std::make_move_iterator(units.end()));
+            }
+            else
+            {
+                parse_errors.insert(parse_errors.end(),
+                                    std::make_move_iterator(imported.errors.begin()),
+                                    std::make_move_iterator(imported.errors.end()));
+            }
         }
     }
     if (!parse_errors.empty())
@@ -327,7 +378,7 @@ int main(int argc, char **argv)
         std::cout << "cxx-modgraph 0.1.0\n";
         return 0;
     }
-    if (options->input_path.empty())
+    if (options->input_paths.empty())
     {
         std::cerr << "error: --input is required\n";
         print_usage(std::cerr);

@@ -17,6 +17,7 @@ struct P1689ImportOptions
 {
     std::filesystem::path source_root = ".";
     std::filesystem::path bmi_directory = "build/bmi";
+    std::string bmi_extension = ".pcm";
     std::vector<ExternalModule> external_modules;
 };
 

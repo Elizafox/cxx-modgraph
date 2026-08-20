@@ -70,7 +70,7 @@ void requires_matching_compilation_database_output()
 void encodes_distinct_logical_names_to_distinct_bmis()
 {
     constexpr std::string_view colliding_names = R"({
-      "version": 1,
+      "version": 0,
       "rules": [
         {"primary-output":"a.o","provides":[{"logical-name":"hello:detail"}]},
         {"primary-output":"b.o","provides":[{"logical-name":"hello-detail"}]},
@@ -83,16 +83,18 @@ void encodes_distinct_logical_names_to_distinct_bmis()
       {"file":"c.cppm","output":"c.o"}
     ])";
 
+    cxx_modgraph::P1689ImportOptions options;
+    options.bmi_extension = ".gcm";
     const cxx_modgraph::P1689ImportResult result =
-        cxx_modgraph::import_p1689(colliding_names, colliding_commands);
+        cxx_modgraph::import_p1689(colliding_names, colliding_commands, options);
     require(result.ok(), "distinct logical module names were rejected");
     require(result.facts->translation_units[0].provides[0].bmi_path ==
-                "build/bmi/hello@3Adetail.pcm",
+                "build/bmi/hello@3Adetail.gcm",
             "partition separator was not encoded");
-    require(result.facts->translation_units[1].provides[0].bmi_path == "build/bmi/hello-detail.pcm",
+    require(result.facts->translation_units[1].provides[0].bmi_path == "build/bmi/hello-detail.gcm",
             "literal hyphen was not preserved");
     require(result.facts->translation_units[2].provides[0].bmi_path ==
-                "build/bmi/hello@253Adetail.pcm",
+                "build/bmi/hello@253Adetail.gcm",
             "literal percent was not encoded");
 }
 

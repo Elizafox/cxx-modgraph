@@ -48,6 +48,10 @@ void emits_make_prerequisites_and_metadata()
                         "    build/bmi/std.compat.pcm \\\n"
                         "    build/bmi/std.pcm") != std::string::npos,
             "BMI target list was not emitted deterministically");
+    require(output.find("CXX_MODGRAPH_OUTPUT_GROUPS := \\\n"
+                        "    build/bmi/std.compat.pcm=build/obj/std.compat.o \\\n"
+                        "    build/bmi/std.pcm=build/obj/std.o") != std::string::npos,
+            "combined BMI and object output groups were not emitted");
     require(output.find("build/bmi/std.compat.pcm: CXX_MODGRAPH_MODULE := std.compat") !=
                 std::string::npos,
             "module metadata was not emitted");

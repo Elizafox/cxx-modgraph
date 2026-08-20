@@ -82,7 +82,8 @@ $(CXX_MODGRAPH_BMI_TARGETS):
 		$(foreach module,$(CXX_MODGRAPH_IMPORTS),-fmodule-file=$(module)) \
 		--precompile $(CXX_MODGRAPH_SOURCE) -o $@
 
-$(CXX_MODGRAPH_OBJECT_TARGETS):
+.SECONDEXPANSION:
+$(CXX_MODGRAPH_OBJECT_TARGETS): $$(CXX_MODGRAPH_PROVIDED_BMIS)
 	@mkdir -p $(dir $@)
 	@if test -n "$(CXX_MODGRAPH_PROVIDED_BMIS)"; then \
 		$(CXX) $(CXX_MODGRAPH_CXXFLAGS) \

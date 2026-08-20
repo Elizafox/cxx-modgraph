@@ -160,7 +160,7 @@ std::filesystem::path bmi_path(std::string module_name, const P1689ImportOptions
         }
     }
 
-    return options.bmi_directory / (filename + ".pcm");
+    return options.bmi_directory / (filename + options.bmi_extension);
 }
 
 void read_provides(const JsonValue::Object &rule, const std::string &context,
@@ -247,7 +247,7 @@ DependencyFacts read_p1689(const JsonValue &root,
 
     const std::int64_t *version = reader.integer(
         reader.property(*document, "version", "P1689 document"), "P1689 document.version");
-    if (version != nullptr && *version != 1)
+    if (version != nullptr && *version != 0 && *version != 1)
     {
         reader.error("unsupported P1689 version " + std::to_string(*version));
     }

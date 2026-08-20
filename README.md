@@ -43,6 +43,9 @@ Two end-to-end GNU Make and Clang projects demonstrate the adapter:
 - [`make-hello-complex`](examples/make-hello-complex) builds a nested module graph
   with exported and internal partitions, a dotted module, an implementation unit,
   and a diamond dependency.
+- [`make-hello-gcc`](examples/make-hello-gcc) uses GCC 16, per-source P1689 scans,
+  `.gcm` outputs, generated module-mapper files, and automatic libstdc++ `std`
+  module construction.
 
 The graph library uses a deterministic implementation of Kahn's algorithm and
 exposes both a topological order and parallel build levels.
@@ -84,6 +87,14 @@ layout beneath the object directory, so equal basenames in different directories
 do not collide. Clang determines which module each file provides, not the
 filename. Projects can override `CXX_MODGRAPH_MODULE_EXTENSIONS`.
 
+GCC emits one P1689 document per source. Repeating `--input` combines such
+documents into one graph, and `--bmi-extension .gcm` selects GCC-style CMI names.
+The reusable [`gcc.mk`](adapters/make/gcc.mk) adapter automates those scans for GCC
+16, emits module-mapper files, and uses GNU Make grouped targets so GCC produces a
+module interface's `.gcm` and object together in one race-free compilation.
+Set `CXX_MODGRAPH_USE_LIBSTDCXX_STD := 1` to build GCC 16's `std` and `std.compat`
+modules automatically with `--compile-std-module` and link their objects.
+
 Module partitions are represented by their P1689 logical names (for example,
 `hello:detail`). Generated BMI filenames use reversible hexadecimal escape
 encoding (`hello@3Adetail.pcm`), and the Make metadata records imports as
@@ -124,11 +135,13 @@ Emit a recipe-free Make fragment with BMI and object prerequisites:
 cxx-modgraph --input dependencies.json --source-root "$PWD" --emit make --output build/modules.mk
 ```
 
-The fragment defines `CXX_MODGRAPH_BMI_TARGETS` and
-`CXX_MODGRAPH_OBJECT_TARGETS`, along with target-specific source, module, and
-imported-BMI metadata. The consuming Makefile remains responsible for the
-compiler-specific recipes, either directly or through a reusable adapter such as
-[`adapters/make/clang.mk`](adapters/make/clang.mk).
+The fragment defines `CXX_MODGRAPH_BMI_TARGETS`, `CXX_MODGRAPH_OBJECT_TARGETS`,
+and `CXX_MODGRAPH_OUTPUT_GROUPS`, along with target-specific source, provided
+module, imported-module, and BMI metadata. Output groups associate a module
+interface's BMI and object for compilers such as GCC that create both in one
+invocation. The consuming Makefile remains responsible for compiler-specific
+recipes, either directly or through a reusable adapter such as
+[`clang.mk`](adapters/make/clang.mk) or [`gcc.mk`](adapters/make/gcc.mk).
 
 ## Contributing
 
