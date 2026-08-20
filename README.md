@@ -10,7 +10,7 @@ This project primarily focusses on:
 - Deterministic dependency processing.
 - Explicit, reproducible source-path resolution.
 - Compiler-neutral dependency facts.
-- Make and JSON output formats.
+- Make, Ninja, and JSON output formats.
 - Making the process of using C++ modules much more frictionless.
 
 ## Building
@@ -49,6 +49,12 @@ Two end-to-end GNU Make and Clang projects demonstrate the adapter:
 
 The graph library uses a deterministic implementation of Kahn's algorithm and
 exposes both a topological order and parallel build levels.
+
+The [`ninja-hello-simple`](examples/ninja-hello-simple) example demonstrates the
+Clang Ninja adapter. Generate its module fragment with `--emit ninja`, then use
+the phony `cxx_modgraph_outputs` target or depend on the emitted object paths
+directly. The reusable [`clang.ninja`](adapters/ninja/clang.ninja) file defines
+the compiler rules referenced by the generated fragment.
 
 ## Compiler scans
 
@@ -148,6 +154,17 @@ interface's BMI and object for compilers such as GCC that create both in one
 invocation. The consuming Makefile remains responsible for compiler-specific
 recipes, either directly or through a reusable adapter such as
 [`clang.mk`](adapters/make/clang.mk) or [`gcc.mk`](adapters/make/gcc.mk).
+
+For Ninja, include the Clang rules followed by an emitted graph fragment:
+
+```ninja
+include adapters/ninja/clang.ninja
+include build/modules.ninja
+```
+
+```sh
+cxx-modgraph --input dependencies.json --emit ninja --output build/modules.ninja
+```
 
 ## Contributing
 

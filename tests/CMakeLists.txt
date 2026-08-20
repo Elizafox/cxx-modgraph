@@ -27,6 +27,15 @@ target_link_libraries(cxx-modgraph-make-tests PRIVATE cxx-modgraph::lib)
 
 add_test(NAME make-emitter COMMAND cxx-modgraph-make-tests)
 
+add_executable(cxx-modgraph-ninja-tests
+    ninja_test.cpp
+)
+
+target_compile_features(cxx-modgraph-ninja-tests PRIVATE cxx_std_20)
+target_link_libraries(cxx-modgraph-ninja-tests PRIVATE cxx-modgraph::lib)
+
+add_test(NAME ninja-emitter COMMAND cxx-modgraph-ninja-tests)
+
 add_executable(cxx-modgraph-p1689-tests
     p1689_test.cpp
 )
@@ -64,6 +73,27 @@ add_test(
         --input ${CMAKE_CURRENT_SOURCE_DIR}/data/std-modules.json
         --emit make
 )
+
+add_test(
+    NAME cli-emit-ninja
+    COMMAND cxx-modgraph
+        --input ${CMAKE_CURRENT_SOURCE_DIR}/data/std-modules.json
+        --emit ninja
+)
+
+find_program(CXX_MODGRAPH_NINJA_EXECUTABLE NAMES ninja ninja-build)
+if(CXX_MODGRAPH_NINJA_EXECUTABLE)
+    add_test(
+        NAME ninja-include
+        COMMAND ${CMAKE_COMMAND}
+            -Dninja_program=${CXX_MODGRAPH_NINJA_EXECUTABLE}
+            -Dmodgraph=$<TARGET_FILE:cxx-modgraph>
+            -Dinput=${CMAKE_CURRENT_SOURCE_DIR}/data/std-modules.json
+            -Dadapter=${PROJECT_SOURCE_DIR}/adapters/ninja/clang.ninja
+            -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/ninja-include
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ninja.cmake
+    )
+endif()
 
 add_test(
     NAME cli-p1689-to-make

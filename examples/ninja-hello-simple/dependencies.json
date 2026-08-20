@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "source-root": ".",
+  "translation-units": [
+    {
+      "source": "modules/helloworld.cppm",
+      "object": "build/obj/helloworld.o",
+      "provides": [
+        { "name": "helloworld", "bmi": "build/bmi/helloworld.pcm" }
+      ],
+      "requires": []
+    },
+    {
+      "source": "src/main.cpp",
+      "object": "build/obj/main.o",
+      "provides": [],
+      "requires": ["helloworld"]
+    }
+  ],
+  "external-modules": []
+}

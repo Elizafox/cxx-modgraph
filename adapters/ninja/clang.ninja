@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: 0BSD
+
+# Reusable Clang rules for a fragment produced by `cxx-modgraph --emit ninja`.
+# Override cxx, cxxflags, or bmi_directory after this file and before the emitted
+# graph fragment is included when needed.
+
+cxx = clang++
+cxxflags = -std=c++23 -stdlib=libc++
+bmi_directory = build/bmi
+
+rule cxx_modgraph_bmi
+  command = cmake -E make_directory "$output_dir" && $cxx $cxxflags -fprebuilt-module-path="$bmi_directory" $module_flags --precompile "$source" -o "$out"
+  description = CXX BMI $out
+
+rule cxx_modgraph_module_object
+  command = cmake -E make_directory "$output_dir" && $cxx $cxxflags -fprebuilt-module-path="$bmi_directory" $module_flags -c "$provided_bmi" -o "$out"
+  description = CXX $out
+
+rule cxx_modgraph_object
+  command = cmake -E make_directory "$output_dir" && $cxx $cxxflags -fprebuilt-module-path="$bmi_directory" $module_flags -c "$source" -o "$out"
+  description = CXX $out

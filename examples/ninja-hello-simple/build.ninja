@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: 0BSD
+
+include ../../adapters/ninja/clang.ninja
+include build/modules.ninja
+
+rule link
+  command = $cxx $cxxflags $in -o $out
+  description = LINK $out
+
+build hello: link build/obj/helloworld.o build/obj/main.o
+default hello

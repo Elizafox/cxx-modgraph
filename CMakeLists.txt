@@ -33,6 +33,7 @@ add_library(cxx-modgraph-lib
     src/json.cpp
     src/json_reader.cpp
     src/make.cpp
+    src/ninja.cpp
     src/p1689.cpp
 )
 

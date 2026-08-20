@@ -3,6 +3,7 @@
 #include "cxx_modgraph/facts.hpp"
 #include "cxx_modgraph/json.hpp"
 #include "cxx_modgraph/make.hpp"
+#include "cxx_modgraph/ninja.hpp"
 #include "cxx_modgraph/p1689.hpp"
 
 #include <filesystem>
@@ -23,7 +24,8 @@ struct Options
     enum class EmitFormat
     {
         json,
-        make
+        make,
+        ninja
     };
 
     enum class InputFormat
@@ -61,7 +63,7 @@ void print_usage(std::ostream &output)
               "                           Register a prebuilt/external module\n"
               "  -o, --output FILE      Write output to FILE instead of stdout\n"
               "      --source-root DIR  Override the input's explicit source root\n"
-              "      --emit FORMAT      Emit json (default) or make\n"
+              "      --emit FORMAT      Emit json (default), make, or ninja\n"
               "  -h, --help             Show this help\n"
               "      --version          Show the program version\n";
 }
@@ -190,6 +192,10 @@ std::optional<Options> parse_options(int argc, char **argv)
             else if (format == "make")
             {
                 options.emit_format = Options::EmitFormat::make;
+            }
+            else if (format == "ninja")
+            {
+                options.emit_format = Options::EmitFormat::ninja;
             }
             else
             {
@@ -352,9 +358,13 @@ int run(const Options &options)
     {
         cxx_modgraph::write_json(*output, facts);
     }
-    else
+    else if (options.emit_format == Options::EmitFormat::make)
     {
         cxx_modgraph::write_make(*output, facts);
+    }
+    else
+    {
+        cxx_modgraph::write_ninja(*output, facts);
     }
     return *output ? 0 : 1;
 }
