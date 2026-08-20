@@ -143,8 +143,9 @@ std::filesystem::path bmi_path(std::string module_name, const P1689ImportOptions
     static constexpr char hex[] = "0123456789ABCDEF";
     std::string filename;
     filename.reserve(module_name.size());
-    for (const unsigned char character : module_name)
+    for (const char value : module_name)
     {
+        const auto character = static_cast<unsigned char>(value);
         if ((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
             (character >= '0' && character <= '9') || character == '-' || character == '_' ||
             character == '.')
