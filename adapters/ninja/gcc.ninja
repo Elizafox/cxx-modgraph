@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: 0BSD
+
+# Reusable GCC 16 rules for a fragment produced by `cxx-modgraph --emit ninja`.
+# GCC creates a module interface's CMI and object in the same invocation.  The
+# BMI rule retains that object beside the CMI and the object rule copies it to
+# the path requested by the emitted graph.
+
+cxx = g++
+cxxflags = -std=c++23 -fmodules
+
+rule cxx_modgraph_bmi
+  command = cmake -E make_directory "$output_dir" && sh -c 'mapper="$$1.mapper"; : > "$$mapper"; for mapping in $$2; do name=$${mapping%%=*}; path=$${mapping#*=}; printf "%s %s\n" "$$name" "$$path" >> "$$mapper"; done; printf "%s %s\n" "$$3" "$$1" >> "$$mapper"; exec $$4 $$5 -fmodule-mapper="$$mapper" -c "$$6" -o "$$1.o"' sh "$out" "$module_mappings" "$provided_module" "$cxx" "$cxxflags" "$source"
+  description = CXX CMI $out
+
+rule cxx_modgraph_module_object
+  command = cmake -E make_directory "$output_dir" && cmake -E copy "$provided_bmi.o" "$out"
+  description = CXX $out
+
+rule cxx_modgraph_object
+  command = cmake -E make_directory "$output_dir" && sh -c 'mapper="$$1.mapper"; : > "$$mapper"; for mapping in $$2; do name=$${mapping%%=*}; path=$${mapping#*=}; printf "%s %s\n" "$$name" "$$path" >> "$$mapper"; done; exec $$3 $$4 -fmodule-mapper="$$mapper" -c "$$5" -o "$$1"' sh "$out" "$module_mappings" "$cxx" "$cxxflags" "$source"
+  description = CXX $out

@@ -9,7 +9,7 @@ cxx_modgraph_adapter_directory := $(dir $(lastword $(MAKEFILE_LIST)))
 
 ifeq ($(CXX_MODGRAPH_COMPILER),auto)
 cxx_modgraph_compiler_macros := \
-    $(shell $(CXX) -dM -E -x c++ /dev/null 2>/dev/null)
+    $(shell $(CXX) $(CXX_MODGRAPH_CXXFLAGS) -dM -E -x c++ /dev/null 2>/dev/null)
 ifneq ($(findstring __clang__,$(cxx_modgraph_compiler_macros)),)
 CXX_MODGRAPH_COMPILER := clang
 else ifneq ($(findstring __GNUC__,$(cxx_modgraph_compiler_macros)),)

@@ -98,7 +98,8 @@ $(CXX_MODGRAPH_OBJECT_TARGETS): $$(CXX_MODGRAPH_PROVIDED_BMIS)
 	fi
 
 ifeq ($(CXX_MODGRAPH_USE_LIBCXX_STD),1)
-CXX_MODGRAPH_LIBCXX_MANIFEST := $(shell $(CXX) -print-file-name=libc++.modules.json)
+CXX_MODGRAPH_LIBCXX_MANIFEST := $(shell \
+    $(CXX) $(CXX_MODGRAPH_CXXFLAGS) -print-file-name=libc++.modules.json)
 CXX_MODGRAPH_LIBCXX_MODULE_DIRECTORY := \
     $(abspath $(dir $(CXX_MODGRAPH_LIBCXX_MANIFEST))/../share/libc++/v1)
 CXX_MODGRAPH_STD_SOURCE ?= $(CXX_MODGRAPH_LIBCXX_MODULE_DIRECTORY)/std.cppm

@@ -93,6 +93,24 @@ if(CXX_MODGRAPH_NINJA_EXECUTABLE)
             -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/ninja-include
             -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ninja.cmake
     )
+    add_test(
+        NAME ninja-gcc-include
+        COMMAND ${CMAKE_COMMAND}
+            -Dninja_program=${CXX_MODGRAPH_NINJA_EXECUTABLE}
+            -Dmodgraph=$<TARGET_FILE:cxx-modgraph>
+            -Dinput=${CMAKE_CURRENT_SOURCE_DIR}/data/std-modules.json
+            -Dadapter=${PROJECT_SOURCE_DIR}/adapters/ninja/gcc.ninja
+            -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/ninja-gcc-include
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ninja.cmake
+    )
+    add_test(
+        NAME ninja-adapter-selector
+        COMMAND ${CMAKE_COMMAND}
+            -Dninja_program=${CXX_MODGRAPH_NINJA_EXECUTABLE}
+            -Dadapter_directory=${PROJECT_SOURCE_DIR}/adapters/ninja
+            -Dwork_directory=${CMAKE_CURRENT_BINARY_DIR}/ninja-adapter-selector
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_ninja_selector.cmake
+    )
 endif()
 
 add_test(

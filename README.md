@@ -51,10 +51,24 @@ The graph library uses a deterministic implementation of Kahn's algorithm and
 exposes both a topological order and parallel build levels.
 
 The [`ninja-hello-simple`](examples/ninja-hello-simple) example demonstrates the
-Clang Ninja adapter. Generate its module fragment with `--emit ninja`, then use
+Ninja adapter. Generate its module fragment with `--emit ninja`, then use
 the phony `cxx_modgraph_outputs` target or depend on the emitted object paths
 directly. The reusable [`clang.ninja`](adapters/ninja/clang.ninja) file defines
-the compiler rules referenced by the generated fragment.
+the Clang compiler rules referenced by the generated fragment. GCC 16 projects
+can include [`gcc.ninja`](adapters/ninja/gcc.ninja) instead; it writes module
+mappers and preserves the object produced alongside each `.gcm`.
+
+[`cxx-modgraph.ninja`](adapters/ninja/cxx-modgraph.ninja) is the generic selector.
+Set `cxx_modgraph_compiler = clang` or `gcc` before including it. Unlike GNU Make,
+Ninja cannot execute a compiler probe while parsing its input, so selection is
+explicit:
+
+```ninja
+cxx_modgraph_compiler = gcc
+cxx_modgraph_adapter_directory = adapters/ninja
+include adapters/ninja/cxx-modgraph.ninja
+include build/modules.ninja
+```
 
 ## Compiler scans
 
@@ -106,6 +120,27 @@ selecting an adapter directly. It probes `$(CXX)` and includes `clang.mk` or
 `gcc.mk`; unsupported compilers stop with a Make error. Set
 `CXX_MODGRAPH_COMPILER := clang` or `gcc` to override detection, which is useful
 for compiler wrappers that do not forward preprocessing probes.
+
+Cross-compilers are supported by setting `CXX` and putting the target and sysroot
+options in `CXX_MODGRAPH_CXXFLAGS`. Those flags are used for compiler detection,
+dependency scanning, standard-library module discovery and compilation, and
+project compilation. Keep BMI, object, scan, and rules directories separate for
+each target because compiler module files are target- and option-specific. The
+`cxx-modgraph` and dependency-scanner executables themselves run on the build
+host; generated programs are never executed by the adapters.
+
+```make
+CXX := x86_64-w64-mingw32-g++
+CXX_MODGRAPH_CXXFLAGS := -std=c++23 -fmodules
+CXX_MODGRAPH_BMI_DIRECTORY := build/mingw64/bmi
+CXX_MODGRAPH_OBJECT_DIRECTORY := build/mingw64/obj
+CXX_MODGRAPH_SCAN_DIRECTORY := build/mingw64/scan
+CXX_MODGRAPH_RULES := build/mingw64/modules.mk
+```
+
+The Ninja adapters expose the equivalent `cxx`, `cxxflags`, and (for Clang)
+`bmi_directory` variables. Override them after including the adapter and before
+including the emitted graph fragment.
 
 Module partitions are represented by their P1689 logical names (for example,
 `hello:detail`). Generated BMI filenames use reversible hexadecimal escape

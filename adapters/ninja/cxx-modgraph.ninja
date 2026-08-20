@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: 0BSD
+
+# Compiler-selecting entry point for the cxx-modgraph Ninja adapters.
+# Ninja cannot run a compiler probe while parsing a file, so set
+# cxx_modgraph_compiler to clang or gcc and cxx_modgraph_adapter_directory to
+# this file's directory before including this file.
+
+include $cxx_modgraph_adapter_directory/$cxx_modgraph_compiler.ninja

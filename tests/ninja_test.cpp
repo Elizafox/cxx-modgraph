@@ -51,6 +51,9 @@ int main()
     require(output.find("module_flags = -fmodule-file='hello$:detail="
                         "build/bmi/hello@3Adetail.pcm'") != std::string::npos,
             "partition mapping was not escaped and emitted");
+    require(output.find("  provided_module = hello$:detail") != std::string::npos &&
+                output.find("  module_mappings = hello$:detail=") != std::string::npos,
+            "compiler-neutral module mapper metadata was not emitted");
     require(output.find("build build/obj/hello.o: cxx_modgraph_module_object ") !=
                     std::string::npos &&
                 output.find("  provided_bmi = build/bmi/hello.pcm") != std::string::npos,

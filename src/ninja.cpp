@@ -125,7 +125,8 @@ std::vector<ModuleImport> imports_for(const TranslationUnit &unit,
 
 void write_edge(std::ostream &output, const std::filesystem::path &target, std::string_view rule,
                 const std::filesystem::path &source, const std::vector<ModuleImport> &direct,
-                const std::vector<ModuleImport> &imports, const std::filesystem::path &provided_bmi)
+                const std::vector<ModuleImport> &imports, const std::filesystem::path &provided_bmi,
+                std::string_view provided_module = {})
 {
     output << "build " << escaped_path(target) << ": " << rule << ' ' << escaped_path(source);
     if (!direct.empty())
@@ -143,12 +144,18 @@ void write_edge(std::ostream &output, const std::filesystem::path &target, std::
             output << ' ' << escaped_path(path);
         }
     }
+
     output << '\n';
     output << "  source = " << escaped_path(source) << '\n';
     output << "  output_dir = " << escaped_path(target.parent_path()) << '\n';
     if (!provided_bmi.empty())
     {
         output << "  provided_bmi = " << escaped_path(provided_bmi) << '\n';
+    }
+
+    if (!provided_module.empty())
+    {
+        output << "  provided_module = " << escape(provided_module) << '\n';
     }
 
     output << "  module_flags =";
@@ -158,6 +165,11 @@ void write_edge(std::ostream &output, const std::filesystem::path &target, std::
                << '\'';
     }
 
+    output << "\n  module_mappings =";
+    for (const ModuleImport &module : imports)
+    {
+        output << ' ' << escape(module.name + "=" + normalized(module.bmi_path));
+    }
     output << "\n\n";
 }
 
@@ -170,6 +182,7 @@ void write_ninja(std::ostream &output, const DependencyFacts &facts)
     {
         providers.try_emplace(module.name, ModuleProvider{module.bmi_path, true, {}});
     }
+
     for (const TranslationUnit &unit : facts.translation_units)
     {
         for (const ProvidedModule &module : unit.provides)
@@ -199,7 +212,8 @@ void write_ninja(std::ostream &output, const DependencyFacts &facts)
         std::ranges::sort(provided, {}, &ProvidedModule::name);
         for (const ProvidedModule &module : provided)
         {
-            write_edge(output, module.bmi_path, "cxx_modgraph_bmi", source, direct, imports, {});
+            write_edge(output, module.bmi_path, "cxx_modgraph_bmi", source, direct, imports, {},
+                       module.name);
             all_outputs.push_back(module.bmi_path);
         }
 

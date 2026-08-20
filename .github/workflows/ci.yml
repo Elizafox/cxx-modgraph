@@ -93,3 +93,38 @@ jobs:
 
       - name: Check whitespace
         run: git show --check --format= --no-renames HEAD
+
+  mingw64-cross-compilation:
+    name: MinGW-w64 cross-compilation / Make and Ninja
+    runs-on: ubuntu-24.04
+    container: fedora:44
+
+    steps:
+      - name: Install build and cross-compilation dependencies
+        run: >-
+          dnf install --assumeyes
+          cmake gcc-c++ git-core make mingw64-gcc-c++ ninja-build
+
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Configure
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCXX_MODGRAPH_USE_BUNDLED_NLOHMANN_JSON=ON
+          -DCXX_MODGRAPH_BUILD_TESTS=OFF
+
+      - name: Build cxx-modgraph for the host
+        run: cmake --build build --parallel
+
+      - name: Cross-compile modules with Make and Ninja
+        run: >-
+          cmake
+          -Dmake_program=/usr/bin/make
+          -Dninja_program=/usr/bin/ninja
+          -Dmodgraph=$PWD/build/cxx-modgraph
+          -Dsource_root=$PWD
+          -Dwork_directory=$PWD/build/mingw64-smoke
+          -Dcross_cxx=x86_64-w64-mingw32-g++
+          -P tests/cross/mingw64_smoke.cmake
