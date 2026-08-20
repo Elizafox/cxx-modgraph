@@ -72,6 +72,7 @@ AnalysisResult analyze(const DependencyFacts &facts)
                            "translation unit has an empty source path");
             continue;
         }
+
         if (!sources.insert(source).second)
         {
             add_diagnostic(result, DiagnosticCode::duplicate_source,
@@ -87,6 +88,7 @@ AnalysisResult analyze(const DependencyFacts &facts)
                                "translation unit '" + source + "' provides an empty module name");
                 continue;
             }
+
             if (module.bmi_path.empty())
             {
                 add_diagnostic(result, DiagnosticCode::empty_bmi_path,
