@@ -18,6 +18,10 @@ option(CXX_MODGRAPH_USE_BUNDLED_NLOHMANN_JSON
     "Use the bundled nlohmann/json even when a system package is available"
     OFF
 )
+option(CXX_MODGRAPH_USE_BUNDLED_CLI11
+    "Use the bundled CLI11 even when a system package is available"
+    OFF
+)
 
 if(NOT CXX_MODGRAPH_USE_BUNDLED_NLOHMANN_JSON)
     find_package(nlohmann_json 3.11.3 QUIET)
@@ -25,6 +29,18 @@ endif()
 
 if(NOT TARGET nlohmann_json::nlohmann_json)
     add_subdirectory(vendor/nlohmann-json EXCLUDE_FROM_ALL)
+endif()
+
+if(NOT CXX_MODGRAPH_USE_BUNDLED_CLI11)
+    find_package(CLI11 2.7.2 CONFIG QUIET)
+endif()
+
+if(NOT TARGET CLI11::CLI11)
+    add_library(cxx-modgraph-cli11 INTERFACE)
+    add_library(CLI11::CLI11 ALIAS cxx-modgraph-cli11)
+    target_include_directories(cxx-modgraph-cli11 SYSTEM INTERFACE
+        "${CMAKE_CURRENT_SOURCE_DIR}/vendor/CLI11/include"
+    )
 endif()
 
 add_library(cxx-modgraph-lib
@@ -56,7 +72,7 @@ add_executable(cxx-modgraph
 )
 
 target_compile_features(cxx-modgraph PRIVATE cxx_std_20)
-target_link_libraries(cxx-modgraph PRIVATE cxx-modgraph::lib)
+target_link_libraries(cxx-modgraph PRIVATE cxx-modgraph::lib CLI11::CLI11)
 
 if(CXX_MODGRAPH_BUILD_TESTS)
     enable_testing()

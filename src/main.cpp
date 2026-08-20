@@ -6,6 +6,8 @@
 #include "cxx_modgraph/ninja.hpp"
 #include "cxx_modgraph/p1689.hpp"
 
+#include <CLI/CLI.hpp>
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -13,7 +15,6 @@
 #include <optional>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <vector>
 
 namespace
@@ -41,176 +42,86 @@ struct Options
     std::filesystem::path bmi_directory = "build/bmi";
     std::string bmi_extension = ".pcm";
     std::vector<cxx_modgraph::ExternalModule> external_modules;
-    bool help = false;
-    bool version = false;
     EmitFormat emit_format = EmitFormat::json;
     InputFormat input_format = InputFormat::canonical;
 };
 
-void print_usage(std::ostream &output)
+std::optional<int> parse_options(int argc, char **argv, Options &options)
 {
-    output << "Usage: cxx-modgraph --input FILE [OPTIONS]\n"
-              "\n"
-              "Read, validate, and emit C++ module dependency facts.\n"
-              "\n"
-              "Options:\n"
-              "  -i, --input FILE       Read dependency JSON; repeat for P1689 inputs\n"
-              "      --input-format FMT Read canonical (default) or p1689 JSON\n"
-              "      --compdb FILE      Compilation database paired with P1689 input\n"
-              "      --bmi-dir DIR      BMI output directory for P1689 providers\n"
-              "      --bmi-extension X BMI filename suffix (default: .pcm)\n"
-              "      --external-module NAME=PATH\n"
-              "                           Register a prebuilt/external module\n"
-              "  -o, --output FILE      Write output to FILE instead of stdout\n"
-              "      --source-root DIR  Override the input's explicit source root\n"
-              "      --emit FORMAT      Emit json (default), make, or ninja\n"
-              "  -h, --help             Show this help\n"
-              "      --version          Show the program version\n";
-}
+    CLI::App app{"Read, validate, and emit C++ module dependency facts.", "cxx-modgraph"};
+    std::string input_format = "canonical";
+    std::string emit_format = "json";
+    std::vector<std::string> external_modules;
 
-std::optional<Options> parse_options(int argc, char **argv)
-{
-    Options options;
-    for (int index = 1; index < argc; ++index)
+    app.add_option("-i,--input", options.input_paths,
+                   "Read dependency JSON; repeat for P1689 inputs")
+        ->type_name("FILE")
+        ->required();
+    app.add_option("--input-format", input_format, "Input JSON format")
+        ->type_name("FMT")
+        ->check(CLI::IsMember({"canonical", "p1689"}))
+        ->default_str("canonical");
+    app.add_option("--compdb", options.compilation_database,
+                   "Compilation database paired with P1689 input")
+        ->type_name("FILE");
+    app.add_option("--bmi-dir", options.bmi_directory, "BMI output directory for P1689 providers")
+        ->type_name("DIR")
+        ->default_str("build/bmi");
+    app.add_option("--bmi-extension", options.bmi_extension, "BMI filename suffix")
+        ->type_name("X")
+        ->default_str(".pcm");
+    app.add_option("--external-module", external_modules, "Register a prebuilt/external module")
+        ->type_name("NAME=PATH")
+        ->check(
+            [](const std::string &mapping)
+            {
+                const std::size_t separator = mapping.find('=');
+                if (separator == 0 || separator == std::string::npos ||
+                    separator + 1 == mapping.size())
+                {
+                    return std::string{"must have the form NAME=PATH"};
+                }
+                return std::string{};
+            });
+    app.add_option("-o,--output", options.output_path, "Write output instead of stdout")
+        ->type_name("FILE");
+    app.add_option("--source-root", options.source_root,
+                   "Override the input's explicit source root")
+        ->type_name("DIR");
+    app.add_option("--emit", emit_format, "Output format")
+        ->type_name("FORMAT")
+        ->check(CLI::IsMember({"json", "make", "ninja"}))
+        ->default_str("json");
+    app.set_version_flag("--version", "cxx-modgraph 0.1.0");
+
+    try
     {
-        const std::string_view argument(argv[index]);
-        if (argument == "--help" || argument == "-h")
-        {
-            options.help = true;
-        }
-        else if (argument == "--version")
-        {
-            options.version = true;
-        }
-        else if (argument == "--input" || argument == "-i")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: " << argument << " requires a value\n";
-                return std::nullopt;
-            }
-            options.input_paths.emplace_back(argv[index]);
-        }
-        else if (argument == "--output" || argument == "-o")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: " << argument << " requires a value\n";
-                return std::nullopt;
-            }
-            options.output_path = argv[index];
-        }
-        else if (argument == "--input-format")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --input-format requires a value\n";
-                return std::nullopt;
-            }
-            const std::string_view format(argv[index]);
-            if (format == "canonical")
-            {
-                options.input_format = Options::InputFormat::canonical;
-            }
-            else if (format == "p1689")
-            {
-                options.input_format = Options::InputFormat::p1689;
-            }
-            else
-            {
-                std::cerr << "error: unknown input format '" << format << "'\n";
-                return std::nullopt;
-            }
-        }
-        else if (argument == "--compdb")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --compdb requires a value\n";
-                return std::nullopt;
-            }
-            options.compilation_database = argv[index];
-        }
-        else if (argument == "--bmi-dir")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --bmi-dir requires a value\n";
-                return std::nullopt;
-            }
-            options.bmi_directory = argv[index];
-        }
-        else if (argument == "--bmi-extension")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --bmi-extension requires a value\n";
-                return std::nullopt;
-            }
-
-            options.bmi_extension = argv[index];
-        }
-        else if (argument == "--external-module")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --external-module requires NAME=PATH\n";
-                return std::nullopt;
-            }
-            const std::string_view mapping(argv[index]);
-            const std::size_t separator = mapping.find('=');
-            if (separator == 0 || separator == std::string_view::npos ||
-                separator + 1 == mapping.size())
-            {
-                std::cerr << "error: --external-module requires NAME=PATH\n";
-                return std::nullopt;
-            }
-            options.external_modules.push_back({std::string(mapping.substr(0, separator)),
-                                                std::string(mapping.substr(separator + 1))});
-        }
-        else if (argument == "--source-root")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --source-root requires a value\n";
-                return std::nullopt;
-            }
-            options.source_root = argv[index];
-        }
-        else if (argument == "--emit")
-        {
-            if (++index == argc)
-            {
-                std::cerr << "error: --emit requires a value\n";
-                return std::nullopt;
-            }
-            const std::string_view format(argv[index]);
-            if (format == "json")
-            {
-                options.emit_format = Options::EmitFormat::json;
-            }
-            else if (format == "make")
-            {
-                options.emit_format = Options::EmitFormat::make;
-            }
-            else if (format == "ninja")
-            {
-                options.emit_format = Options::EmitFormat::ninja;
-            }
-            else
-            {
-                std::cerr << "error: unknown output format '" << format << "'\n";
-                return std::nullopt;
-            }
-        }
-        else
-        {
-            std::cerr << "error: unknown option '" << argument << "'\n";
-            return std::nullopt;
-        }
+        app.parse(argc, argv);
+    }
+    catch (const CLI::ParseError &error)
+    {
+        return app.exit(error);
     }
 
-    return options;
+    options.input_format =
+        input_format == "p1689" ? Options::InputFormat::p1689 : Options::InputFormat::canonical;
+    if (emit_format == "make")
+    {
+        options.emit_format = Options::EmitFormat::make;
+    }
+    else if (emit_format == "ninja")
+    {
+        options.emit_format = Options::EmitFormat::ninja;
+    }
+
+    for (const std::string &mapping : external_modules)
+    {
+        const std::size_t separator = mapping.find('=');
+        options.external_modules.push_back(
+            {mapping.substr(0, separator), mapping.substr(separator + 1)});
+    }
+
+    return std::nullopt;
 }
 
 int run(const Options &options)
@@ -239,6 +150,7 @@ int run(const Options &options)
 
             input = &input_file;
         }
+
         std::ostringstream input_contents;
         input_contents << input->rdbuf();
         cxx_modgraph::JsonParseResult parsed = cxx_modgraph::parse_json(input_contents.str());
@@ -268,6 +180,7 @@ int run(const Options &options)
                       << options.compilation_database->string() << "'\n";
             return 1;
         }
+
         std::ostringstream command_contents;
         command_contents << commands.rdbuf();
         cxx_modgraph::P1689ImportOptions import_options;
@@ -283,6 +196,7 @@ int run(const Options &options)
                 std::cerr << "error: stdin cannot be combined with multiple P1689 inputs\n";
                 return 2;
             }
+
             std::ifstream input_file;
             std::istream *input = &std::cin;
             if (input_path != "-")
@@ -296,6 +210,7 @@ int run(const Options &options)
 
                 input = &input_file;
             }
+
             std::ostringstream input_contents;
             input_contents << input->rdbuf();
             cxx_modgraph::P1689ImportResult imported = cxx_modgraph::import_p1689(
@@ -315,6 +230,7 @@ int run(const Options &options)
             }
         }
     }
+
     if (!parse_errors.empty())
     {
         for (const cxx_modgraph::JsonError &error : parse_errors)
@@ -330,6 +246,7 @@ int run(const Options &options)
     {
         facts.source_root = *options.source_root;
     }
+
     const cxx_modgraph::AnalysisResult analysis = cxx_modgraph::analyze(facts);
     if (!analysis.ok())
     {
@@ -354,6 +271,7 @@ int run(const Options &options)
 
         output = &output_file;
     }
+
     if (options.emit_format == Options::EmitFormat::json)
     {
         cxx_modgraph::write_json(*output, facts);
@@ -366,6 +284,7 @@ int run(const Options &options)
     {
         cxx_modgraph::write_ninja(*output, facts);
     }
+
     return *output ? 0 : 1;
 }
 
@@ -373,26 +292,12 @@ int run(const Options &options)
 
 int main(int argc, char **argv)
 {
-    const std::optional<Options> options = parse_options(argc, argv);
-    if (!options)
+    Options options;
+    const std::optional<int> parse_result = parse_options(argc, argv, options);
+    if (parse_result)
     {
-        return 2;
+        return *parse_result;
     }
-    if (options->help)
-    {
-        print_usage(std::cout);
-        return 0;
-    }
-    if (options->version)
-    {
-        std::cout << "cxx-modgraph 0.1.0\n";
-        return 0;
-    }
-    if (options->input_paths.empty())
-    {
-        std::cerr << "error: --input is required\n";
-        print_usage(std::cerr);
-        return 2;
-    }
-    return run(*options);
+
+    return run(options);
 }
